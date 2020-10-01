@@ -1,0 +1,10 @@
+name: "Apache Jena ARQ"
+metadata:
+  keywords:
+    - "jena"
+    - "rdf"
+    - "data"
+  guide: "https://quarkus.io/guides/jena"
+  categories:
+    - "data"
+  status: "stable"
