@@ -16,13 +16,13 @@ import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
+import io.quarkus.arc.deployment.BeanArchiveIndexBuildItem;
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
 import io.quarkus.deployment.Feature;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
-import io.quarkus.deployment.builditem.ApplicationArchivesBuildItem;
 import io.quarkus.deployment.builditem.ExtensionSslNativeSupportBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.RuntimeInitializedClassBuildItem;
@@ -74,19 +74,26 @@ public class RedisClientProcessor {
     }
 
     @BuildStep
-    RuntimeInitializedClassBuildItem initializeBulkTypeDuringRuntime() {
-        return new RuntimeInitializedClassBuildItem(BulkType.class.getName());
+    public void registerRuntimeInitializedClasses(BuildProducer<RuntimeInitializedClassBuildItem> producer) {
+        producer.produce(new RuntimeInitializedClassBuildItem(BulkType.class.getName()));
+        // Classes using SplittableRandom, which need to be runtime initialized
+        producer.produce(new RuntimeInitializedClassBuildItem("io.vertx.redis.client.impl.RedisSentinelClient"));
+        producer.produce(new RuntimeInitializedClassBuildItem("io.vertx.redis.client.impl.Slots"));
+        producer.produce(new RuntimeInitializedClassBuildItem("io.vertx.redis.client.impl.RedisClusterConnection"));
+        // RedisClusterConnections is referenced from RedisClusterClient. Thus, we need to runtime-init
+        // that too.
+        producer.produce(new RuntimeInitializedClassBuildItem("io.vertx.redis.client.impl.RedisClusterClient"));
     }
 
     @BuildStep
     @Record(ExecutionTime.RUNTIME_INIT)
-    public void produceRedisClient(RedisClientRecorder recorder, ApplicationArchivesBuildItem applicationArchives,
+    public void produceRedisClient(RedisClientRecorder recorder, BeanArchiveIndexBuildItem indexBuildItem,
             BuildProducer<SyntheticBeanBuildItem> syntheticBeans,
             VertxBuildItem vertxBuildItem) {
         Set<String> clientNames = new HashSet<>();
         clientNames.add(RedisClientUtil.DEFAULT_CLIENT);
 
-        IndexView indexView = applicationArchives.getRootArchive().getIndex();
+        IndexView indexView = indexBuildItem.getIndex();
         Collection<AnnotationInstance> clientAnnotations = indexView.getAnnotations(REDIS_CLIENT_ANNOTATION);
         for (AnnotationInstance annotation : clientAnnotations) {
             clientNames.add(annotation.value().asString());

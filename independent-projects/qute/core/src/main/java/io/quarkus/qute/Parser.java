@@ -6,6 +6,8 @@ import io.quarkus.qute.SectionHelperFactory.ParametersInfo;
 import io.quarkus.qute.TemplateNode.Origin;
 import java.io.IOException;
 import java.io.Reader;
+import java.io.StringReader;
+import java.nio.CharBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,7 +21,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
@@ -31,15 +35,18 @@ class Parser implements Function<String, Expression>, ParserHelper {
     private static final Logger LOGGER = Logger.getLogger(Parser.class);
     private static final String ROOT_HELPER_NAME = "$root";
 
-    static final Origin SYNTHETIC_ORIGIN = new OriginImpl(0, 0, "<<synthetic>>", "<<synthetic>>", Optional.empty());
+    static final Origin SYNTHETIC_ORIGIN = new OriginImpl(0, 0, 0, "<<synthetic>>", "<<synthetic>>", Optional.empty());
 
     private static final char START_DELIMITER = '{';
     private static final char END_DELIMITER = '}';
     private static final char COMMENT_DELIMITER = '!';
-    private static final char CDATA_START_DELIMITER = '[';
-    private static final char CDATA_END_DELIMITER = ']';
+    private static final char CDATA_START_DELIMITER = '|';
+    private static final char CDATA_START_DELIMITER_OLD = '[';
+    private static final char CDATA_END_DELIMITER = '|';
+    private static final char CDATA_END_DELIMITER_OLD = ']';
     private static final char UNDERSCORE = '_';
     private static final char ESCAPE_CHAR = '\\';
+    private static final char NAMESPACE_SEPARATOR = ':';
 
     // Linux, BDS, etc.
     private static final char LINE_SEPARATOR_LF = '\n';
@@ -51,31 +58,33 @@ class Parser implements Function<String, Expression>, ParserHelper {
     static final char END_COMPOSITE_PARAM = ')';
 
     private final EngineImpl engine;
+    private final Reader reader;
+    private final Optional<Variant> variant;
+    private final String templateId;
+    private final String generatedId;
+
     private StringBuilder buffer;
     private State state;
     private int line;
     private int lineCharacter;
     private final Deque<SectionNode.Builder> sectionStack;
-    private final Deque<SectionBlock.Builder> sectionBlockStack;
     private final Deque<ParametersInfo> paramsStack;
     private final Deque<Scope> scopeStack;
     private int sectionBlockIdx;
     private boolean ignoreContent;
-    private String id;
-    private String generatedId;
-    private Optional<Variant> variant;
+    private AtomicInteger expressionIdGenerator;
+    private final List<Function<String, String>> contentFilters;
 
-    public Parser(EngineImpl engine) {
+    public Parser(EngineImpl engine, Reader reader, String templateId, String generatedId, Optional<Variant> variant) {
         this.engine = engine;
+        this.templateId = templateId;
+        this.generatedId = generatedId;
+        this.variant = variant;
+        this.reader = reader;
+
         this.state = State.TEXT;
         this.buffer = new StringBuilder();
         this.sectionStack = new ArrayDeque<>();
-        this.sectionStack
-                .addFirst(SectionNode.builder(ROOT_HELPER_NAME, origin())
-                        .setEngine(engine)
-                        .setHelperFactory(ROOT_SECTION_HELPER_FACTORY));
-        this.sectionBlockStack = new ArrayDeque<>();
-        this.sectionBlockStack.addFirst(SectionBlock.builder(SectionHelperFactory.MAIN_BLOCK_NAME, this, this::parserError));
         this.sectionBlockIdx = 0;
         this.paramsStack = new ArrayDeque<>();
         this.paramsStack.addFirst(ParametersInfo.EMPTY);
@@ -83,6 +92,8 @@ class Parser implements Function<String, Expression>, ParserHelper {
         this.scopeStack.addFirst(new Scope(null));
         this.line = 1;
         this.lineCharacter = 1;
+        this.expressionIdGenerator = new AtomicInteger();
+        this.contentFilters = new ArrayList<>(5);
     }
 
     static class RootSectionHelperFactory implements SectionHelperFactory<SectionHelper> {
@@ -99,14 +110,26 @@ class Parser implements Function<String, Expression>, ParserHelper {
         }
     }
 
-    Template parse(Reader reader, Optional<Variant> variant, String id, String generatedId) {
+    Template parse() {
+
+        sectionStack.addFirst(SectionNode.builder(ROOT_HELPER_NAME, origin(0), this, this::parserError)
+                .setEngine(engine)
+                .setHelperFactory(ROOT_SECTION_HELPER_FACTORY));
+
         long start = System.currentTimeMillis();
-        this.id = id;
-        this.generatedId = generatedId;
-        this.variant = variant;
+        Reader r = reader;
+
         try {
+            if (!contentFilters.isEmpty()) {
+                String contents = toString(reader);
+                for (Function<String, String> filter : contentFilters) {
+                    contents = filter.apply(contents);
+                }
+                r = new StringReader(contents);
+            }
+
             int val;
-            while ((val = reader.read()) != -1) {
+            while ((val = r.read()) != -1) {
                 processCharacter((char) val);
                 lineCharacter++;
             }
@@ -116,8 +139,17 @@ class Parser implements Function<String, Expression>, ParserHelper {
                     // Flush the last text segment
                     flushText();
                 } else {
+                    String reason;
+                    if (state == State.TAG_INSIDE_STRING_LITERAL) {
+                        reason = "unterminated string literal";
+                    } else if (state == State.TAG_INSIDE) {
+                        reason = "unterminated tag";
+                    } else {
+                        reason = "unexpected state [" + state + "]";
+                    }
                     throw parserError(
-                            "unexpected non-text buffer at the end of the template - probably an unterminated tag: " + buffer);
+                            "unexpected non-text buffer at the end of the template - " + reason + ": "
+                                    + buffer);
                 }
             }
 
@@ -128,11 +160,6 @@ class Parser implements Function<String, Expression>, ParserHelper {
             if (!root.helperName.equals(ROOT_HELPER_NAME)) {
                 throw parserError("unterminated section [" + root.helperName + "] detected");
             }
-            SectionBlock.Builder part = sectionBlockStack.peek();
-            if (part == null) {
-                throw parserError("no root section part found");
-            }
-            root.addBlock(part.build());
             TemplateImpl template = new TemplateImpl(engine, root.build(), generatedId, variant);
 
             Set<TemplateNode> nodesToRemove;
@@ -172,6 +199,9 @@ class Parser implements Function<String, Expression>, ParserHelper {
                 break;
             case TAG_INSIDE:
                 tag(character);
+                break;
+            case TAG_INSIDE_STRING_LITERAL:
+                tagStringLiteral(character);
                 break;
             case COMMENT:
                 comment(character);
@@ -233,7 +263,7 @@ class Parser implements Function<String, Expression>, ParserHelper {
             buffer = new StringBuilder();
             if (engine.removeStandaloneLines) {
                 // Add a dummy comment block to detect standalone lines
-                sectionBlockStack.peek().addNode(COMMENT_NODE);
+                sectionStack.peek().currentBlock().addNode(COMMENT_NODE);
             }
         } else {
             buffer.append(character);
@@ -241,7 +271,8 @@ class Parser implements Function<String, Expression>, ParserHelper {
     }
 
     private void cdata(char character) {
-        if (character == END_DELIMITER && buffer.length() > 0 && buffer.charAt(buffer.length() - 1) == CDATA_END_DELIMITER) {
+        if (character == END_DELIMITER && buffer.length() > 0
+                && isCdataEnd(buffer.charAt(buffer.length() - 1))) {
             // End of cdata
             state = State.TEXT;
             buffer.deleteCharAt(buffer.length() - 1);
@@ -251,12 +282,26 @@ class Parser implements Function<String, Expression>, ParserHelper {
         }
     }
 
+    private boolean isCdataEnd(char character) {
+        return character == CDATA_END_DELIMITER || character == CDATA_END_DELIMITER_OLD;
+    }
+
     private void tag(char character) {
-        if (character == END_DELIMITER) {
+        if (LiteralSupport.isStringLiteralSeparator(character)) {
+            state = State.TAG_INSIDE_STRING_LITERAL;
+            buffer.append(character);
+        } else if (character == END_DELIMITER) {
             flushTag();
         } else {
             buffer.append(character);
         }
+    }
+
+    private void tagStringLiteral(char character) {
+        if (LiteralSupport.isStringLiteralSeparator(character)) {
+            state = State.TAG_INSIDE;
+        }
+        buffer.append(character);
     }
 
     private void tagCandidate(char character) {
@@ -266,7 +311,7 @@ class Parser implements Function<String, Expression>, ParserHelper {
             if (character == COMMENT_DELIMITER) {
                 buffer.append(character);
                 state = State.COMMENT;
-            } else if (character == CDATA_START_DELIMITER) {
+            } else if (character == CDATA_START_DELIMITER || character == CDATA_START_DELIMITER_OLD) {
                 state = State.CDATA;
             } else {
                 buffer.append(character);
@@ -287,6 +332,7 @@ class Parser implements Function<String, Expression>, ParserHelper {
     private boolean isValidIdentifierStart(char character) {
         // A valid identifier must start with a digit, alphabet, underscore, comment delimiter, cdata start delimiter or a tag command (e.g. # for sections)
         return Tag.isCommand(character) || character == COMMENT_DELIMITER || character == CDATA_START_DELIMITER
+                || character == CDATA_START_DELIMITER_OLD
                 || character == UNDERSCORE
                 || Character.isDigit(character)
                 || Character.isAlphabetic(character);
@@ -312,16 +358,16 @@ class Parser implements Function<String, Expression>, ParserHelper {
 
     private void flushText() {
         if (buffer.length() > 0 && !ignoreContent) {
-            SectionBlock.Builder block = sectionBlockStack.peek();
-            block.addNode(new TextNode(buffer.toString(), origin()));
+            SectionBlock.Builder block = sectionStack.peek().currentBlock();
+            block.addNode(new TextNode(buffer.toString(), origin(0)));
         }
         this.buffer = new StringBuilder();
     }
 
     private void flushNextLine() {
         if (buffer.length() > 0 && !ignoreContent) {
-            SectionBlock.Builder block = sectionBlockStack.peek();
-            block.addNode(new LineSeparatorNode(buffer.toString(), origin()));
+            SectionBlock.Builder block = sectionStack.peek().currentBlock();
+            block.addNode(new LineSeparatorNode(buffer.toString(), origin(0)));
         }
         this.buffer = new StringBuilder();
         line++;
@@ -334,7 +380,8 @@ class Parser implements Function<String, Expression>, ParserHelper {
         String tag = START_DELIMITER + content + END_DELIMITER;
 
         if (content.charAt(0) == Tag.SECTION.command) {
-
+            // It's a section/block start
+            // {#if}, {#else}, etc.
             boolean isEmptySection = false;
             if (content.charAt(content.length() - 1) == Tag.SECTION_END.command) {
                 content = content.substring(0, content.length() - 1);
@@ -349,81 +396,67 @@ class Parser implements Function<String, Expression>, ParserHelper {
             sectionName = sectionName.substring(1, sectionName.length());
 
             SectionNode.Builder lastSection = sectionStack.peek();
-            // Add a section block if the section name matches a section block label or does not map to any section helper and the last section treats unknown subsections as blocks
+            // Add a section block if the section name matches a section block label 
+            // or does not map to any section helper and the last section treats unknown subsections as blocks
             if (lastSection != null && lastSection.factory.getBlockLabels().contains(sectionName)
                     || (lastSection.factory.treatUnknownSectionsAsBlocks()
                             && !engine.getSectionHelperFactories().containsKey(sectionName))) {
 
-                // Section block
-                if (!ignoreContent) {
-                    // E.g. {#else if valid}
-                    // Build the previous block
-                    sectionStack.peek().addBlock(sectionBlockStack.pop().build());
-                }
-                // Add the new block
+                // => New section block
                 SectionBlock.Builder block = SectionBlock.builder("" + sectionBlockIdx++, this, this::parserError)
-                        .setOrigin(origin());
-                sectionBlockStack.addFirst(block.setLabel(sectionName));
-                processParams(tag, sectionName, iter);
+                        .setOrigin(origin(0)).setLabel(sectionName);
+                lastSection.addBlock(block);
+
+                processParams(tag, sectionName, iter, block);
 
                 // Initialize the block
                 Scope currentScope = scopeStack.peek();
-                Scope newScope = sectionStack.peek().factory.initializeBlock(currentScope, block);
+                Scope newScope = lastSection.factory.initializeBlock(currentScope, block);
                 scopeStack.addFirst(newScope);
 
-                // A new block - stop ignoring the block content
-                ignoreContent = false;
-
             } else {
-                // New section
+                // => New section
                 SectionHelperFactory<?> factory = engine.getSectionHelperFactory(sectionName);
                 if (factory == null) {
                     throw parserError("no section helper found for " + tag);
                 }
-                paramsStack.addFirst(factory.getParameters());
-                SectionBlock.Builder mainBlock = SectionBlock
-                        .builder(SectionHelperFactory.MAIN_BLOCK_NAME, this, this::parserError)
-                        .setOrigin(origin());
-                sectionBlockStack.addFirst(mainBlock);
-                processParams(tag, SectionHelperFactory.MAIN_BLOCK_NAME, iter);
-
-                // Init section block
-                Scope currentScope = scopeStack.peek();
-                Scope newScope = factory.initializeBlock(currentScope, mainBlock);
                 SectionNode.Builder sectionNode = SectionNode
-                        .builder(sectionName, origin())
+                        .builder(sectionName, origin(0), this, this::parserError)
                         .setEngine(engine)
                         .setHelperFactory(factory);
 
+                paramsStack.addFirst(factory.getParameters());
+                processParams(tag, SectionHelperFactory.MAIN_BLOCK_NAME, iter, sectionNode.currentBlock());
+
+                // Init section block
+                Scope currentScope = scopeStack.peek();
+                Scope newScope = factory.initializeBlock(currentScope, sectionNode.currentBlock());
+
                 if (isEmptySection) {
-                    sectionNode.addBlock(mainBlock.build());
                     // Remove params from the stack
                     paramsStack.pop();
-                    // Remove the block from the stack
-                    sectionBlockStack.pop();
                     // Add node to the parent block
-                    sectionBlockStack.peek().addNode(sectionNode.build());
+                    sectionStack.peek().currentBlock().addNode(sectionNode.build());
                 } else {
                     scopeStack.addFirst(newScope);
                     sectionStack.addFirst(sectionNode);
                 }
             }
         } else if (content.charAt(0) == Tag.SECTION_END.command) {
-            SectionBlock.Builder block = sectionBlockStack.peek();
+            // It's a section/block end
             SectionNode.Builder section = sectionStack.peek();
+            SectionBlock.Builder block = section.currentBlock();
             String name = content.substring(1, content.length());
             if (block != null && !block.getLabel().equals(SectionHelperFactory.MAIN_BLOCK_NAME)
                     && !section.helperName.equals(name)) {
-                // Block end
+                // Non-main block end, e.g. {/else}
                 if (!name.isEmpty() && !block.getLabel().equals(name)) {
                     throw parserError(
                             "section block end tag [" + name + "] does not match the start tag [" + block.getLabel() + "]");
                 }
-                section.addBlock(sectionBlockStack.pop().build());
-                // Ignore the block content until a next block starts or the current section ends
-                ignoreContent = true;
+                section.endBlock();
             } else {
-                // Section end
+                // Section end, e.g. {/if}
                 if (section.helperName.equals(ROOT_HELPER_NAME)) {
                     throw parserError("no section start tag found for " + tag);
                 }
@@ -431,54 +464,53 @@ class Parser implements Function<String, Expression>, ParserHelper {
                     throw parserError(
                             "section end tag [" + name + "] does not match the start tag [" + section.helperName + "]");
                 }
+                // Pop the section and its main block
                 section = sectionStack.pop();
-                if (!ignoreContent) {
-                    // Add the current block to the current section
-                    section.addBlock(sectionBlockStack.pop().build());
-                } else {
-                    // The current section ends - stop ignoring the block content
-                    ignoreContent = false;
-                }
-                sectionBlockStack.peek().addNode(section.build());
+                sectionStack.peek().currentBlock().addNode(section.build());
             }
 
             // Remove the last type info map from the stack
             scopeStack.pop();
 
         } else if (content.charAt(0) == Tag.PARAM.command) {
-
+            // Parameter declaration
             // {@org.acme.Foo foo}
             Scope currentScope = scopeStack.peek();
             int spaceIdx = content.indexOf(" ");
             String key = content.substring(spaceIdx + 1, content.length());
             String value = content.substring(1, spaceIdx);
-            currentScope.put(key, Expressions.TYPE_INFO_SEPARATOR + value + Expressions.TYPE_INFO_SEPARATOR);
-            sectionBlockStack.peek().addNode(new ParameterDeclarationNode(content, origin()));
-
+            currentScope.putBinding(key, Expressions.TYPE_INFO_SEPARATOR + value + Expressions.TYPE_INFO_SEPARATOR);
+            sectionStack.peek().currentBlock().addNode(new ParameterDeclarationNode(content, origin(0)));
         } else {
-            sectionBlockStack.peek().addNode(new ExpressionNode(apply(content), engine, origin()));
+            // Expression
+            sectionStack.peek().currentBlock()
+                    .addNode(new ExpressionNode(apply(content), engine, origin(content.length() + 1)));
         }
         this.buffer = new StringBuilder();
     }
 
     private TemplateException parserError(String message) {
         StringBuilder builder = new StringBuilder("Parser error");
-        if (!id.equals(generatedId)) {
-            builder.append(" in template [").append(id).append("]");
+        if (!templateId.equals(generatedId)) {
+            builder.append(" in template [").append(templateId).append("]");
         }
         builder.append(" on line ").append(line).append(": ")
                 .append(message);
-        return new TemplateException(origin(),
+        return new TemplateException(origin(0),
                 builder.toString());
     }
 
-    private void processParams(String tag, String label, Iterator<String> iter) {
+    private void processParams(String tag, String label, Iterator<String> iter, SectionBlock.Builder block) {
         Map<String, String> params = new LinkedHashMap<>();
         List<Parameter> factoryParams = paramsStack.peek().get(label);
         List<String> paramValues = new ArrayList<>();
 
         while (iter.hasNext()) {
-            paramValues.add(iter.next());
+            // Ignore whitespace strings
+            String val = iter.next().trim();
+            if (!val.isEmpty()) {
+                paramValues.add(val);
+            }
         }
         if (paramValues.size() > factoryParams.size()) {
             LOGGER.debugf("Too many params [label=%s, params=%s, factoryParams=%s]", label, paramValues, factoryParams);
@@ -534,16 +566,19 @@ class Parser implements Function<String, Expression>, ParserHelper {
             throw parserError("mandatory section parameters not declared for " + tag + ": " + undeclaredParams);
         }
 
-        params.forEach(sectionBlockStack.peek()::addParameter);
+        params.forEach(block::addParameter);
     }
 
     /**
      *
      * @param part
      * @return the index of an equals char outside of any string literal,
-     *         <code>-1</code> if no such char is found
+     *         <code>-1</code> if no such char is found or if the part represents a composite param
      */
     static int getFirstDeterminingEqualsCharPosition(String part) {
+        if (!part.isEmpty() && part.charAt(0) == START_COMPOSITE_PARAM) {
+            return -1;
+        }
         boolean stringLiteral = false;
         for (int i = 0; i < part.length(); i++) {
             if (LiteralSupport.isStringLiteralSeparator(part.charAt(i))) {
@@ -645,6 +680,7 @@ class Parser implements Function<String, Expression>, ParserHelper {
 
         TEXT,
         TAG_INSIDE,
+        TAG_INSIDE_STRING_LITERAL,
         TAG_CANDIDATE,
         COMMENT,
         ESCAPE,
@@ -653,12 +689,12 @@ class Parser implements Function<String, Expression>, ParserHelper {
 
     }
 
-    static ExpressionImpl parseExpression(String value, Scope scope, Origin origin) {
+    static ExpressionImpl parseExpression(Supplier<Integer> idGenerator, String value, Scope scope, Origin origin) {
         if (value == null || value.isEmpty()) {
             return ExpressionImpl.EMPTY;
         }
         String namespace = null;
-        int namespaceIdx = value.indexOf(':');
+        int namespaceIdx = value.indexOf(NAMESPACE_SEPARATOR);
         int spaceIdx = value.indexOf(' ');
         int bracketIdx = value.indexOf('(');
 
@@ -679,14 +715,15 @@ class Parser implements Function<String, Expression>, ParserHelper {
                 String literal = strParts.get(0);
                 Object literalValue = LiteralSupport.getLiteralValue(literal);
                 if (!Result.NOT_FOUND.equals(literalValue)) {
-                    return ExpressionImpl.literal(literal, literalValue, origin);
+                    return ExpressionImpl.literal(idGenerator.get(), literal, literalValue, origin);
                 }
             }
         }
         List<Part> parts = new ArrayList<>(strParts.size());
         Part first = null;
-        for (String strPart : strParts) {
-            Part part = createPart(namespace, first, strPart, scope, origin);
+        Iterator<String> strPartsIterator = strParts.iterator();
+        while (strPartsIterator.hasNext()) {
+            Part part = createPart(idGenerator, namespace, first, strPartsIterator, scope, origin);
             if (!isValidIdentifier(part.getName())) {
                 StringBuilder builder = new StringBuilder("Invalid identifier found [");
                 builder.append(value).append("]");
@@ -701,18 +738,23 @@ class Parser implements Function<String, Expression>, ParserHelper {
             }
             parts.add(part);
         }
-        return new ExpressionImpl(namespace, parts, Result.NOT_FOUND, origin);
+        return new ExpressionImpl(idGenerator.get(), namespace, parts, Result.NOT_FOUND, origin);
     }
 
-    private static Part createPart(String namespace, Part first, String value, Scope scope, Origin origin) {
+    private static Part createPart(Supplier<Integer> idGenerator, String namespace, Part first,
+            Iterator<String> strPartsIterator, Scope scope,
+            Origin origin) {
+        String value = strPartsIterator.next();
         if (Expressions.isVirtualMethod(value)) {
             String name = Expressions.parseVirtualMethodName(value);
             List<String> strParams = new ArrayList<>(Expressions.parseVirtualMethodParams(value));
             List<Expression> params = new ArrayList<>(strParams.size());
             for (String strParam : strParams) {
-                params.add(parseExpression(strParam.trim(), scope, origin));
+                params.add(parseExpression(idGenerator, strParam.trim(), scope, origin));
             }
-            return new ExpressionImpl.VirtualMethodPartImpl(name, params);
+            // Note that an expression may never start with a virtual method
+            String lastPartHint = strPartsIterator.hasNext() ? null : scope.getLastPartHint();
+            return new ExpressionImpl.VirtualMethodPartImpl(name, params, lastPartHint);
         }
         // Try to parse the literal for bracket notation
         if (Expressions.isBracketNotation(value)) {
@@ -733,11 +775,20 @@ class Parser implements Function<String, Expression>, ParserHelper {
 
         String typeInfo = null;
         if (namespace != null) {
-            typeInfo = value;
+            // If a namespace is used and it's the first part then prepend the value with the namespace
+            // For example foo -> inject:foo
+            typeInfo = first != null ? value : namespace + NAMESPACE_SEPARATOR + value;
         } else if (first == null) {
-            typeInfo = scope.getBindingType(value);
+            // No namespace used and it's the first part
+            // Try to find the binding type for the first part of the expression
+            typeInfo = scope.getBinding(value);
         } else if (first.getTypeInfo() != null) {
+            // No namespace and not the first part
             typeInfo = value;
+        }
+        if (typeInfo != null && !strPartsIterator.hasNext() && scope.getLastPartHint() != null) {
+            // If the type info present then append hint to the last part
+            typeInfo += scope.getLastPartHint();
         }
         return new ExpressionImpl.PartImpl(value, typeInfo);
     }
@@ -752,11 +803,11 @@ class Parser implements Function<String, Expression>, ParserHelper {
 
     @Override
     public ExpressionImpl apply(String value) {
-        return parseExpression(value, scopeStack.peek(), origin());
+        return parseExpression(expressionIdGenerator::incrementAndGet, value, scopeStack.peek(), origin(value.length() + 1));
     }
 
-    Origin origin() {
-        return new OriginImpl(line, lineCharacter, id, generatedId, variant);
+    Origin origin(int lineCharacterOffset) {
+        return new OriginImpl(line, lineCharacter - lineCharacterOffset, lineCharacter, templateId, generatedId, variant);
     }
 
     private List<List<TemplateNode>> readLines(SectionNode rootNode) {
@@ -833,17 +884,32 @@ class Parser implements Function<String, Expression>, ParserHelper {
         return true;
     }
 
+    private static String toString(Reader in)
+            throws IOException {
+        StringBuilder out = new StringBuilder();
+        CharBuffer buffer = CharBuffer.allocate(8192);
+        while (in.read(buffer) != -1) {
+            buffer.flip();
+            out.append(buffer);
+            buffer.clear();
+        }
+        return out.toString();
+    }
+
     static class OriginImpl implements Origin {
 
         private final int line;
-        private final int lineCharacter;
+        private final int lineCharacterStart;
+        private final int lineCharacterEnd;
         private final String templateId;
         private final String templateGeneratedId;
         private final Optional<Variant> variant;
 
-        OriginImpl(int line, int lineCharacter, String templateId, String templateGeneratedId, Optional<Variant> variant) {
+        OriginImpl(int line, int lineCharacterStart, int lineCharacterEnd, String templateId, String templateGeneratedId,
+                Optional<Variant> variant) {
             this.line = line;
-            this.lineCharacter = lineCharacter;
+            this.lineCharacterStart = lineCharacterStart;
+            this.lineCharacterEnd = lineCharacterEnd;
             this.templateId = templateId;
             this.templateGeneratedId = templateGeneratedId;
             this.variant = variant;
@@ -855,8 +921,13 @@ class Parser implements Function<String, Expression>, ParserHelper {
         }
 
         @Override
-        public int getLineCharacter() {
-            return lineCharacter;
+        public int getLineCharacterStart() {
+            return lineCharacterStart;
+        }
+
+        @Override
+        public int getLineCharacterEnd() {
+            return lineCharacterEnd;
         }
 
         @Override
@@ -905,10 +976,20 @@ class Parser implements Function<String, Expression>, ParserHelper {
     }
 
     @Override
+    public String getTemplateId() {
+        return templateId;
+    }
+
+    @Override
     public void addParameter(String name, String type) {
         // {@org.acme.Foo foo}
         Scope currentScope = scopeStack.peek();
-        currentScope.put(name, Expressions.TYPE_INFO_SEPARATOR + type + Expressions.TYPE_INFO_SEPARATOR);
+        currentScope.putBinding(name, Expressions.TYPE_INFO_SEPARATOR + type + Expressions.TYPE_INFO_SEPARATOR);
+    }
+
+    @Override
+    public void addContentFilter(Function<String, String> filter) {
+        contentFilters.add(filter);
     }
 
     private static final SectionHelper ROOT_SECTION_HELPER = new SectionHelper() {

@@ -4,6 +4,7 @@ import static java.util.Arrays.asList;
 import static org.objectweb.asm.Type.BOOLEAN_TYPE;
 import static org.objectweb.asm.Type.BYTE_TYPE;
 import static org.objectweb.asm.Type.CHAR_TYPE;
+import static org.objectweb.asm.Type.DOUBLE_TYPE;
 import static org.objectweb.asm.Type.FLOAT_TYPE;
 import static org.objectweb.asm.Type.INT_TYPE;
 import static org.objectweb.asm.Type.LONG_TYPE;
@@ -43,7 +44,8 @@ public class AsmUtil {
             SHORT_TYPE,
             INT_TYPE,
             FLOAT_TYPE,
-            LONG_TYPE);
+            LONG_TYPE,
+            DOUBLE_TYPE);
     public static final List<org.objectweb.asm.Type> WRAPPERS = asList(
             getType(Void.class),
             getType(Boolean.class),
@@ -52,7 +54,8 @@ public class AsmUtil {
             getType(Short.class),
             getType(Integer.class),
             getType(Float.class),
-            getType(Long.class));
+            getType(Long.class),
+            getType(Double.class));
     public static final Map<org.objectweb.asm.Type, org.objectweb.asm.Type> WRAPPER_TO_PRIMITIVE = new HashMap<>();
 
     static {
@@ -151,6 +154,21 @@ public class AsmUtil {
     public static String getDescriptor(Type type, Function<String, String> typeArgMapper) {
         StringBuilder sb = new StringBuilder();
         toSignature(sb, type, typeArgMapper, true);
+        return sb.toString();
+    }
+
+    /**
+     * Returns the Java bytecode signature of a given Jandex Type using the given type argument mappings.
+     * For example, given this type: <tt>List&lt;T></tt>, this will return <tt>Ljava/util/List&lt;Ljava/lang/Integer;>;</tt> if
+     * your {@code typeArgMapper} contains {@code T=Ljava/lang/Integer;}.
+     * 
+     * @param type the type you want the signature for.
+     * @param typeArgMapper a mapping between type argument names and their bytecode descriptor.
+     * @return a bytecode signature for that type.
+     */
+    public static String getSignature(Type type, Function<String, String> typeArgMapper) {
+        StringBuilder sb = new StringBuilder();
+        toSignature(sb, type, typeArgMapper, false);
         return sb.toString();
     }
 
@@ -273,7 +291,7 @@ public class AsmUtil {
      * specialised return instructions <tt>IRETURN, LRETURN, FRETURN, DRETURN, RETURN</tt> for primitives/void,
      * and <tt>ARETURN</tt> otherwise;
      * 
-     * @param typeDescriptor the return Jandex Type.
+     * @param jandexType the return Jandex Type.
      * @return the correct bytecode return instruction for that return type descriptor.
      */
     public static int getReturnInstruction(Type jandexType) {

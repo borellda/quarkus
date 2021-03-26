@@ -36,7 +36,11 @@ public class TemplateExtensionMethodsTest {
                     .addAsResource(new StringAsset("{anyInt.foo('bing')}"),
                             "templates/any.txt")
                     .addAsResource(new StringAsset("{foo.pong}::{foo.name}"),
-                            "templates/priority.txt"));
+                            "templates/priority.txt")
+                    .addAsResource(new StringAsset("{num.twice}"),
+                            "templates/assignability.txt")
+                    .addAsResource(new StringAsset("{myArray.getLast}"),
+                            "templates/arrays.txt"));
 
     @Inject
     Template foo;
@@ -64,6 +68,12 @@ public class TemplateExtensionMethodsTest {
     }
 
     @Test
+    public void testMatchRegex() {
+        assertEquals("BRAVO=BAR",
+                engine.parse("{foo.bravo}={foo.bar}").data("foo", new Foo("pong", 10l)).render());
+    }
+
+    @Test
     public void testBuiltinExtensions() {
         Map<String, String> map = new HashMap<String, String>();
         map.put("alpha", "1");
@@ -85,6 +95,18 @@ public class TemplateExtensionMethodsTest {
     public void testListGetByIndex() {
         assertEquals("true=true=NOT_FOUND",
                 engine.parse("{list.0}={list[0]}={list[100]}").data("list", Collections.singletonList(true)).render());
+    }
+
+    @Test
+    public void testMatchTypeAssignability() {
+        assertEquals("20",
+                engine.getTemplate("assignability").data("num", 10.1).render());
+    }
+
+    @Test
+    public void testArrayMatchType() {
+        assertEquals("last",
+                engine.getTemplate("arrays").data("myArray", new String[] { "first", "second", "last" }).render());
     }
 
     @TemplateExtension
@@ -118,6 +140,19 @@ public class TemplateExtensionMethodsTest {
 
         static int defaultScale(BigDecimal val) {
             return 2;
+        }
+
+        @TemplateExtension(matchRegex = "(bar|bravo)")
+        static String fooRegex(Foo foo, String name) {
+            return name.toUpperCase();
+        }
+
+        static int twice(Number number) {
+            return number.intValue() * 2;
+        }
+
+        static Object getLast(Object[] array) {
+            return array[array.length - 1];
         }
     }
 

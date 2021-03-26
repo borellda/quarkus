@@ -1,50 +1,64 @@
 package io.quarkus.rest.data.panache.deployment.methods;
 
-import static io.quarkus.gizmo.FieldDescriptor.of;
-
-import javax.transaction.Transactional;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 
-import org.jboss.jandex.IndexView;
 import org.jboss.resteasy.links.LinkResource;
 
 import io.quarkus.gizmo.AnnotatedElement;
 import io.quarkus.gizmo.AnnotationCreator;
+import io.quarkus.gizmo.BytecodeCreator;
+import io.quarkus.gizmo.CatchBlockCreator;
 import io.quarkus.gizmo.ClassCreator;
 import io.quarkus.gizmo.FieldDescriptor;
-import io.quarkus.gizmo.MethodCreator;
-import io.quarkus.gizmo.ResultHandle;
-import io.quarkus.rest.data.panache.deployment.RestDataResourceInfo;
-import io.quarkus.rest.data.panache.deployment.properties.MethodPropertiesAccessor;
+import io.quarkus.gizmo.TryBlock;
+import io.quarkus.rest.data.panache.RestDataPanacheException;
+import io.quarkus.rest.data.panache.deployment.ResourceMetadata;
+import io.quarkus.rest.data.panache.deployment.properties.ResourceProperties;
+import io.quarkus.rest.data.panache.runtime.sort.SortQueryParamValidator;
 
+/**
+ * A standard JAX-RS method implementor.
+ */
 public abstract class StandardMethodImplementor implements MethodImplementor {
 
+    /**
+     * Implement exposed JAX-RS method.
+     */
     @Override
-    public void implement(ClassCreator classCreator, IndexView index, MethodPropertiesAccessor propertiesAccessor,
-            RestDataResourceInfo resourceInfo) {
-        MethodMetadata methodMetadata = getMethodMetadata(resourceInfo);
-        if (propertiesAccessor.isExposed(resourceInfo.getType(), methodMetadata)) {
-            implementInternal(classCreator, index, propertiesAccessor, resourceInfo);
-        } else {
-            NotExposedMethodImplementor implementor = new NotExposedMethodImplementor(methodMetadata);
-            implementor.implement(classCreator, index, propertiesAccessor, resourceInfo);
+    public void implement(ClassCreator classCreator, ResourceMetadata resourceMetadata,
+            ResourceProperties resourceProperties, FieldDescriptor resourceField) {
+        if (resourceProperties.isExposed(getResourceMethodName())) {
+            implementInternal(classCreator, resourceMetadata, resourceProperties, resourceField);
         }
     }
 
-    protected abstract void implementInternal(ClassCreator classCreator, IndexView index,
-            MethodPropertiesAccessor propertiesAccessor, RestDataResourceInfo resourceInfo);
+    /**
+     * Implement the actual JAX-RS method logic.
+     */
+    protected abstract void implementInternal(ClassCreator classCreator, ResourceMetadata resourceMetadata,
+            ResourceProperties resourceProperties, FieldDescriptor resourceField);
 
-    protected abstract MethodMetadata getMethodMetadata(RestDataResourceInfo resourceInfo);
+    /**
+     * Get a name of a method which this controller uses to access data.
+     */
+    protected abstract String getResourceMethodName();
 
-    protected void addTransactionalAnnotation(AnnotatedElement element) {
-        element.addAnnotation(Transactional.class);
+    protected TryBlock implementTryBlock(BytecodeCreator bytecodeCreator, String message) {
+        TryBlock tryBlock = bytecodeCreator.tryBlock();
+        CatchBlockCreator catchBlock = tryBlock.addCatch(Throwable.class);
+        catchBlock.throwException(RestDataPanacheException.class, message, catchBlock.getCaughtException());
+        catchBlock.close();
+        return tryBlock;
     }
 
     protected void addGetAnnotation(AnnotatedElement element) {
@@ -63,9 +77,9 @@ public abstract class StandardMethodImplementor implements MethodImplementor {
         element.addAnnotation(DELETE.class);
     }
 
-    protected void addLinksAnnotation(AnnotatedElement element, String type, String rel) {
+    protected void addLinksAnnotation(AnnotatedElement element, String entityClassName, String rel) {
         AnnotationCreator linkResource = element.addAnnotation(LinkResource.class);
-        linkResource.addValue("entityClassName", type);
+        linkResource.addValue("entityClassName", entityClassName);
         linkResource.addValue("rel", rel);
     }
 
@@ -77,6 +91,14 @@ public abstract class StandardMethodImplementor implements MethodImplementor {
         element.addAnnotation(PathParam.class).addValue("value", value);
     }
 
+    protected void addQueryParamAnnotation(AnnotatedElement element, String value) {
+        element.addAnnotation(QueryParam.class).addValue("value", value);
+    }
+
+    protected void addDefaultValueAnnotation(AnnotatedElement element, String value) {
+        element.addAnnotation(DefaultValue.class).addValue("value", value);
+    }
+
     protected void addProducesAnnotation(AnnotatedElement element, String... mediaTypes) {
         element.addAnnotation(Produces.class).addValue("value", mediaTypes);
     }
@@ -85,8 +107,21 @@ public abstract class StandardMethodImplementor implements MethodImplementor {
         element.addAnnotation(Consumes.class).addValue("value", mediaTypes);
     }
 
-    protected ResultHandle getInstanceField(MethodCreator creator, String name, Class<?> type) {
-        FieldDescriptor descriptor = of(creator.getMethodDescriptor().getDeclaringClass(), name, type);
-        return creator.readInstanceField(descriptor, creator.getThis());
+    protected void addContextAnnotation(AnnotatedElement element) {
+        element.addAnnotation(Context.class);
+    }
+
+    protected void addSortQueryParamValidatorAnnotation(AnnotatedElement element) {
+        element.addAnnotation(SortQueryParamValidator.class);
+    }
+
+    protected String appendToPath(String path, String suffix) {
+        if (path.endsWith("/")) {
+            path = path.substring(0, path.lastIndexOf("/"));
+        }
+        if (suffix.startsWith("/")) {
+            suffix = suffix.substring(1);
+        }
+        return String.join("/", path, suffix);
     }
 }

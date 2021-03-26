@@ -8,6 +8,7 @@ import io.quarkus.arc.InjectableBean.Kind;
 import io.quarkus.arc.InjectableContext;
 import io.quarkus.arc.InjectableInterceptor;
 import io.quarkus.arc.InjectableReferenceProvider;
+import io.quarkus.arc.impl.ClientProxies;
 import io.quarkus.arc.impl.CreationalContextImpl;
 import io.quarkus.arc.impl.FixedValueSupplier;
 import io.quarkus.arc.impl.InjectableReferenceProviders;
@@ -78,12 +79,30 @@ public final class MethodDescriptors {
     public static final MethodDescriptor OBJECT_EQUALS = MethodDescriptor.ofMethod(Object.class, "equals", boolean.class,
             Object.class);
 
+    /**
+     * No longer used - will be deleted
+     * 
+     * @deprecated
+     */
+    @Deprecated
     public static final MethodDescriptor OBJECT_HASH_CODE = MethodDescriptor.ofMethod(Object.class, "hashCode", int.class);
 
+    /**
+     * No longer used - will be deleted
+     * 
+     * @deprecated
+     */
+    @Deprecated
     public static final MethodDescriptor OBJECT_TO_STRING = MethodDescriptor.ofMethod(Object.class, "toString", String.class);
 
     public static final MethodDescriptor OBJECT_CONSTRUCTOR = MethodDescriptor.ofConstructor(Object.class);
 
+    /**
+     * No longer used - will be deleted
+     * 
+     * @deprecated
+     */
+    @Deprecated
     public static final MethodDescriptor OBJECTS_REFERENCE_EQUALS = MethodDescriptor.ofMethod(Objects.class, "referenceEquals",
             boolean.class, Object.class, Object.class);
 
@@ -241,6 +260,12 @@ public final class MethodDescriptors {
 
     public static final MethodDescriptor REMOVED_BEAN_IMPL = MethodDescriptor.ofConstructor(RemovedBeanImpl.class, Kind.class,
             String.class, Set.class, Set.class);
+
+    public static final MethodDescriptor CLIENT_PROXIES_GET_APP_SCOPED_DELEGATE = MethodDescriptor.ofMethod(ClientProxies.class,
+            "getApplicationScopedDelegate", Object.class, InjectableContext.class, InjectableBean.class);
+
+    public static final MethodDescriptor CLIENT_PROXIES_GET_DELEGATE = MethodDescriptor.ofMethod(ClientProxies.class,
+            "getDelegate", Object.class, InjectableBean.class);
 
     private MethodDescriptors() {
     }

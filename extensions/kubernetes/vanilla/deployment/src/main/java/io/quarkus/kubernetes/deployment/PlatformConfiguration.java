@@ -46,6 +46,8 @@ public interface PlatformConfiguration extends EnvVarHolder {
 
     ProbeConfig getReadinessProbe();
 
+    PrometheusConfig getPrometheusConfig();
+
     Map<String, MountConfig> getMounts();
 
     Map<String, SecretVolumeConfig> getSecretVolumes();
@@ -68,6 +70,12 @@ public interface PlatformConfiguration extends EnvVarHolder {
 
     Map<String, HostAliasConfig> getHostAliases();
 
+    ResourcesConfig getResources();
+
+    default Optional<ExpositionConfig> getExposition() {
+        return Optional.empty();
+    }
+
     default boolean isExpose() {
         return false;
     }
@@ -75,4 +83,9 @@ public interface PlatformConfiguration extends EnvVarHolder {
     default String getConfigName() {
         return getClass().getSimpleName().replaceAll("Config$", "").toLowerCase();
     }
+
+    public Optional<String> getAppSecret();
+
+    public Optional<String> getAppConfigMap();
+
 }

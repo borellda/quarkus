@@ -13,6 +13,7 @@ public enum Capability {
      * JSR 365 compatible contexts and dependency injection
      */
     CDI,
+    CONFIG_YAML,
     /**
      * Java Servlet API
      */
@@ -28,6 +29,9 @@ public enum Capability {
     RESTEASY,
     RESTEASY_JSON,
     RESTEASY_MUTINY,
+    RESTEASY_REACTIVE,
+    RESTEASY_JACKSON,
+    RESTEASY_JSONB,
     JWT,
     TIKA,
     MONGODB_PANACHE,
@@ -40,6 +44,7 @@ public enum Capability {
     SECURITY_ELYTRON_LDAP,
     SECURITY_JPA,
     QUARTZ,
+    KUBERNETES_SERVICE_BINDING,
     /**
      * @deprecated
      * @see io.quarkus.deployment.metrics.MetricsCapabilityBuildItem
@@ -50,8 +55,10 @@ public enum Capability {
     CONTAINER_IMAGE_S2I,
     CONTAINER_IMAGE_OPENSHIFT,
     HIBERNATE_ORM,
+    HIBERNATE_ENVERS,
     HIBERNATE_REACTIVE,
     HIBERNATE_VALIDATOR,
+    OPENTELEMETRY_TRACER,
     /**
      * Presence of an io.opentracing tracer (for example, Jaeger).
      */
@@ -61,7 +68,8 @@ public enum Capability {
      */
     SMALLRYE_OPENTRACING,
     SPRING_WEB,
-    SMALLRYE_OPENAPI;
+    SMALLRYE_OPENAPI,
+    OPENSHIFT_CLIENT;
 
     /**
      *

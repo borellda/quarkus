@@ -4,7 +4,6 @@ import io.quarkus.qute.SectionHelperFactory.BlockInfo;
 import io.quarkus.qute.TemplateNode.Origin;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +27,7 @@ public final class SectionBlock {
      */
     public final String label;
     /**
-     * Map of parsed parameters.
+     * An ordered map of parsed parameters.
      */
     public final Map<String, String> parameters;
 
@@ -54,8 +53,8 @@ public final class SectionBlock {
         return nodes.isEmpty();
     }
 
-    Set<Expression> getExpressions() {
-        Set<Expression> expressions = new HashSet<>();
+    List<Expression> getExpressions() {
+        List<Expression> expressions = new ArrayList<>();
         expressions.addAll(this.expressions.values());
         for (TemplateNode node : nodes) {
             expressions.addAll(node.getExpressions());
@@ -151,11 +150,6 @@ public final class SectionBlock {
 
         SectionBlock.Builder addNode(TemplateNode node) {
             nodes.add(node);
-            return this;
-        }
-
-        SectionBlock.Builder addNodes(TemplateNode... nodes) {
-            Collections.addAll(this.nodes, nodes);
             return this;
         }
 

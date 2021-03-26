@@ -12,7 +12,6 @@ import java.net.URI
 import java.time.LocalDate
 import javax.annotation.PostConstruct
 import javax.inject.Inject
-import javax.ws.rs.Consumes
 import javax.ws.rs.DELETE
 import javax.ws.rs.GET
 import javax.ws.rs.NotFoundException
@@ -27,8 +26,6 @@ import javax.ws.rs.core.MediaType
 import javax.ws.rs.core.Response
 
 @Path("/reactive/books/repository")
-@Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 class ReactiveBookRepositoryResource {
     @Inject
     lateinit var reactiveBookRepository: ReactiveBookRepository
@@ -87,7 +84,7 @@ class ReactiveBookRepositoryResource {
 
     @GET
     @Path("/{id}")
-    fun getBook(@PathParam("id") id: String?): Uni<Book> = reactiveBookRepository.findById(ObjectId(id))
+    fun getBook(@PathParam("id") id: String?) = reactiveBookRepository.findById(ObjectId(id))
 
     @GET
     @Path("/search/{author}")

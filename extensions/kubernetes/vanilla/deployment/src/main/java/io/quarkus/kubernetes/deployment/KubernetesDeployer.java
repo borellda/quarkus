@@ -21,19 +21,19 @@ import java.util.stream.Collectors;
 
 import org.jboss.logging.Logger;
 
-import io.dekorate.deps.kubernetes.api.model.HasMetadata;
-import io.dekorate.deps.kubernetes.api.model.KubernetesList;
-import io.dekorate.deps.kubernetes.client.KubernetesClient;
-import io.dekorate.deps.kubernetes.client.KubernetesClientException;
-import io.dekorate.deps.openshift.api.model.Route;
-import io.dekorate.deps.openshift.client.OpenShiftClient;
 import io.dekorate.utils.Clients;
 import io.dekorate.utils.Serialization;
+import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.KubernetesList;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.openshift.api.model.Route;
+import io.fabric8.openshift.client.OpenShiftClient;
 import io.quarkus.container.image.deployment.ContainerImageCapabilitiesUtil;
 import io.quarkus.container.spi.ContainerImageInfoBuildItem;
 import io.quarkus.deployment.Capabilities;
 import io.quarkus.deployment.Capability;
-import io.quarkus.deployment.IsNormal;
+import io.quarkus.deployment.IsNormalNotRemoteDev;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.builditem.ApplicationInfoBuildItem;
@@ -51,7 +51,7 @@ public class KubernetesDeployer {
             .values().stream()
             .map(s -> "\"" + s + "\"").collect(Collectors.joining(", "));
 
-    @BuildStep(onlyIf = IsNormal.class)
+    @BuildStep(onlyIf = IsNormalNotRemoteDev.class)
     public void selectDeploymentTarget(ContainerImageInfoBuildItem containerImageInfo,
             EnabledKubernetesDeploymentTargetsBuildItem targets,
             Capabilities capabilities,
@@ -70,7 +70,7 @@ public class KubernetesDeployer {
         selectedDeploymentTarget.produce(new SelectedKubernetesDeploymentTargetBuildItem(selectedTarget));
     }
 
-    @BuildStep(onlyIf = IsNormal.class)
+    @BuildStep(onlyIf = IsNormalNotRemoteDev.class)
     public void deploy(KubernetesClientBuildItem kubernetesClient,
             Capabilities capabilities,
             Optional<SelectedKubernetesDeploymentTargetBuildItem> selectedDeploymentTarget,
@@ -124,7 +124,7 @@ public class KubernetesDeployer {
         if (userSpecifiedDeploymentTargets.isEmpty()) {
             selectedTarget = targets.getEntriesSortedByPriority().get(0);
             if (targets.getEntriesSortedByPriority().size() > 1) {
-                log.info("Deploying target '" + selectedTarget.getName()
+                log.info("Selecting target '" + selectedTarget.getName()
                         + "' since it has the highest priority among the implicitly enabled deployment targets");
             }
         } else {

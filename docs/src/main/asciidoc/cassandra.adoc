@@ -1,7 +1,7 @@
 ////
 This guide is maintained in the main Quarkus repository
 and pull requests should be submitted there:
-https://github.com/quarkusio/quarkus/tree/master/docs/src/main/asciidoc
+https://github.com/quarkusio/quarkus/tree/main/docs/src/main/asciidoc
 ////
 = Quarkus - Using the Cassandra Client
 
@@ -65,6 +65,11 @@ The most important part of the `pom.xml` is adding the `cassandra-quarkus` exten
     <version>${quarkus.version}</version>
 </dependency>
 ----
+
+Also make sure to follow the
+link:https://docs.datastax.com/en/developer/java-driver/latest/manual/mapper/config/[instructions]
+on how to add an annotation processor to the compiler configuration. When the project is compiled,
+additional mapper classes are generated.
 
 == Creating JSON REST service
 
@@ -179,6 +184,9 @@ public class FruitDaoProducer {
 Note how the `QuarkusCqlSession` instance is injected automatically by the cassandra-quarkus
 extension in the `FruitDaoProducer` constructor.
 
+Also note that `FruitMapperBuilder` is one of the classes generated automatically by the
+`java-driver-mapper-processor` annotation processor.
+
 Now create a `FruitService` that will be the business layer of our application and store/load the
 fruits from the Cassandra database.
 
@@ -212,8 +220,6 @@ The last missing piece is the REST API that will expose GET and POST methods:
 [source,java]
 ----
 @Path("/fruits")
-@Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 public class FruitResource {
 
   private static final String STORE_NAME = "acme";
@@ -345,7 +351,7 @@ following CQL query: `SELECT data_center FROM system.local`.
 If you want to use Docker to run a Cassandra database, you can use the following command to launch
 one:
 
-[source,shell]
+[source,bash]
 ----
 docker run \
    --name local-cassandra-instance \
@@ -365,18 +371,18 @@ like JMX monitoring of the Cassandra instance.
 Next you need to create the keyspace and table that will be used by your application. If you are
 using Docker, run the following commands:
 
-[source,shell]
+[source,bash]
 ----
 docker exec -it local-cassandra-instance cqlsh -e "CREATE KEYSPACE IF NOT EXISTS k1 WITH replication = {'class':'SimpleStrategy', 'replication_factor':1}"
-docker exec -it local-cassandra-instance cqlsh -e "CREATE TABLE IF NOT EXISTS k1.fruit(id text, name text, description text, PRIMARY KEY((id), name))"
+docker exec -it local-cassandra-instance cqlsh -e "CREATE TABLE IF NOT EXISTS k1.fruit(store_id text, name text, description text, PRIMARY KEY((store_id), name))"
 ----
 
 If you're running Cassandra locally you can execute the cqlsh commands directly:
 
-[source,shell]
+[source,bash]
 ----
 cqlsh -e "CREATE KEYSPACE IF NOT EXISTS k1 WITH replication = {'class':'SimpleStrategy', 'replication_factor':1}
-cqlsh -e "CREATE TABLE IF NOT EXISTS k1.fruit(id text, name text, description text, PRIMARY KEY((id), name))
+cqlsh -e "CREATE TABLE IF NOT EXISTS k1.fruit(store_id text, name text, description text, PRIMARY KEY((store_id), name))
 ----
 
 == Creating a frontend
@@ -400,7 +406,7 @@ When using `QuarkusCqlSession` you have access to reactive variant of methods th
 Quarkus and Mutiny.
 
 TIP:  If you're not familiar with Mutiny, read the
-link:https://quarkus.io/guides/getting-started-reactive[Getting Started with Reactive guide] first.
+link:getting-started-reactive[Getting Started with Reactive guide] first.
 
 Let's rewrite the previous example using reactive programming with Mutiny.
 
@@ -542,7 +548,7 @@ You can now interact with your reactive REST service:
 If you are using the `quarkus-smallrye-health` extension, `cassandra-quarkus` will automatically
 add a readiness health check to validate the connection to the cluster.
 
-So when you access the `/health/ready` endpoint of your application you will have information about
+So when you access the `/q/health/ready` endpoint of your application you will have information about
 the connection validation status.
 
 TIP: This behavior can be disabled by setting the `quarkus.cassandra.health.enabled` property to
@@ -577,7 +583,7 @@ For the full list of available metrics, please refer to the
 link:https://docs.datastax.com/en/developer/java-driver/latest/manual/core/configuration/reference/[driver settings reference]
 and the `advanced.metrics` section.
 
-When metrics are properly enabled and when you access the `/metrics` endpoint of your application,
+When metrics are enabled and you access the `/q/metrics` endpoint of your application,
 you will see metric reports for all enabled metrics.
 
 == Building a native executable

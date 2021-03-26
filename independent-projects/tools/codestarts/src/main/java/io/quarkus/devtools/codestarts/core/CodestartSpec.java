@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 public final class CodestartSpec {
@@ -21,6 +20,7 @@ public final class CodestartSpec {
     private final CodestartType type;
     private final boolean isFallback;
     private final Set<String> tags;
+    private final Map<String, String> metadata;
     private final Map<String, String> outputStrategy;
     private final Map<String, LanguageSpec> languagesSpec;
 
@@ -31,6 +31,7 @@ public final class CodestartSpec {
             @JsonProperty("fallback") boolean isFallback,
             @JsonProperty("preselected") boolean isPreselected,
             @JsonProperty("tags") Set<String> tags,
+            @JsonProperty("metadata") Map<String, String> metadata,
             @JsonProperty("output-strategy") Map<String, String> outputStrategy,
             @JsonProperty("language") Map<String, LanguageSpec> languagesSpec) {
         this.name = requireNonNull(name, "name is required");
@@ -40,6 +41,7 @@ public final class CodestartSpec {
         this.isFallback = isFallback;
         this.isPreselected = isPreselected;
         this.outputStrategy = outputStrategy != null ? outputStrategy : Collections.emptyMap();
+        this.metadata = metadata != null ? metadata : Collections.emptyMap();
         this.languagesSpec = languagesSpec != null ? languagesSpec : Collections.emptyMap();
     }
 
@@ -65,6 +67,10 @@ public final class CodestartSpec {
 
     public boolean isPreselected() {
         return isPreselected;
+    }
+
+    public Map<String, String> getMetadata() {
+        return metadata;
     }
 
     public Map<String, String> getOutputStrategy() {
@@ -118,6 +124,8 @@ public final class CodestartSpec {
         private static final String GROUP_ID = "groupId";
         private static final String ARTIFACT_ID = "artifactId";
         private static final String VERSION = "version";
+        private static final String FORMATTED_GAV = "formatted-gav";
+        private static final String FORMATTED_GA = "formatted-ga";
 
         public CodestartDep() {
         }
@@ -125,14 +133,20 @@ public final class CodestartSpec {
         @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
         public CodestartDep(final String expression) {
             final String[] split = expression.split(":");
-            if (split.length < 2 || split.length > 3) {
+            if (split.length < 2) {
                 throw new IllegalArgumentException("Invalid CodestartDep expression: " + expression);
             }
             this.put(GROUP_ID, split[0]);
             this.put(ARTIFACT_ID, split[1]);
+
             if (split.length == 3) {
                 this.put(VERSION, split[2]);
+                this.put(FORMATTED_GA, split[0] + ":" + split[1]);
+            } else {
+                this.put(FORMATTED_GA, expression);
             }
+            this.put(FORMATTED_GAV, expression);
+
         }
 
         public String getGroupId() {
@@ -149,8 +163,7 @@ public final class CodestartSpec {
 
         @Override
         public String toString() {
-            final String version = Optional.ofNullable(getVersion()).map(v -> ":" + v).orElse("");
-            return getGroupId() + ":" + getArtifactId() + version;
+            return this.get(FORMATTED_GAV);
         }
 
         @Override

@@ -10,12 +10,11 @@ import io.quarkus.devtools.commands.handlers.CreateProjectCommandHandler;
 import io.quarkus.devtools.project.BuildTool;
 import io.quarkus.devtools.project.QuarkusProject;
 import io.quarkus.devtools.project.codegen.SourceType;
-import io.quarkus.platform.descriptor.QuarkusPlatformDescriptor;
 import io.quarkus.platform.tools.ToolsConstants;
 import io.quarkus.platform.tools.ToolsUtils;
-import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -32,24 +31,22 @@ public class CreateProject {
 
     public static final String NAME = "create-project";
 
-    public static final String CODESTARTS_ENABLED = ToolsUtils.dotJoin(ToolsConstants.QUARKUS, NAME, "codestarts-enabled");
     public static final String NO_DOCKERFILES = ToolsUtils.dotJoin(ToolsConstants.QUARKUS, NAME, "no-dockerfiles");
     public static final String NO_BUILDTOOL_WRAPPER = ToolsUtils.dotJoin(ToolsConstants.QUARKUS, NAME, "no-buildtool-wrapper");
     public static final String NO_EXAMPLES = ToolsUtils.dotJoin(ToolsConstants.QUARKUS, NAME, "no-examples");
     public static final String CODESTARTS = ToolsUtils.dotJoin(ToolsConstants.QUARKUS, NAME, "codestarts");
+    public static final String OVERRIDE_EXAMPLES = ToolsUtils.dotJoin(ToolsConstants.QUARKUS, NAME, "examples");
 
     private static final Pattern JAVA_VERSION_PATTERN = Pattern.compile("(?:1\\.)?(\\d+)(?:\\..*)?");
 
-    private final Path projectDirPath;
-    private final QuarkusPlatformDescriptor platformDescr;
+    private QuarkusProject quarkusProject;
     private String javaTarget;
-    private BuildTool buildTool = BuildTool.MAVEN;
+    private Set<String> extensions = new HashSet<>();
 
     private Map<String, Object> values = new HashMap<>();
 
-    public CreateProject(final Path projectDirPath, QuarkusPlatformDescriptor platformDescr) {
-        this.projectDirPath = requireNonNull(projectDirPath, "projectDirPath is required");
-        this.platformDescr = requireNonNull(platformDescr, "platformDescr is required");
+    public CreateProject(QuarkusProject project) {
+        this.quarkusProject = requireNonNull(project, "project is required");
     }
 
     public CreateProject groupId(String groupId) {
@@ -67,13 +64,24 @@ public class CreateProject {
         return this;
     }
 
+    @Deprecated
     public CreateProject quarkusMavenPluginVersion(String version) {
         setValue(QUARKUS_MAVEN_PLUGIN_VERSION, version);
         return this;
     }
 
+    @Deprecated
     public CreateProject quarkusGradlePluginVersion(String version) {
         setValue(QUARKUS_GRADLE_PLUGIN_VERSION, version);
+        return this;
+    }
+
+    public CreateProject quarkusPluginVersion(String version) {
+        if (quarkusProject.getBuildTool().equals(BuildTool.MAVEN)) {
+            setValue(QUARKUS_MAVEN_PLUGIN_VERSION, version);
+        } else {
+            setValue(QUARKUS_GRADLE_PLUGIN_VERSION, version);
+        }
         return this;
     }
 
@@ -87,6 +95,15 @@ public class CreateProject {
         return this;
     }
 
+    public CreateProject resourcePath(String resourcePath) {
+        setValue(RESOURCE_PATH, resourcePath);
+        return this;
+    }
+
+    /**
+     * Use packageName instead as this one is only working with RESTEasy and SpringWeb
+     */
+    @Deprecated
     public CreateProject className(String className) {
         if (className == null) {
             return this;
@@ -98,11 +115,22 @@ public class CreateProject {
         return this;
     }
 
-    public CreateProject extensions(Set<String> extensions) {
-        if (isSpringStyle(extensions)) {
-            setValue(IS_SPRING, true);
+    public CreateProject packageName(String packageName) {
+        if (packageName == null) {
+            return this;
         }
-        setValue(EXTENSIONS, extensions);
+        if (!(SourceVersion.isName(packageName) && !SourceVersion.isKeyword(packageName))) {
+            throw new IllegalArgumentException(packageName + " is not a  package name");
+        }
+        setValue(PACKAGE_NAME, packageName);
+        return this;
+    }
+
+    public CreateProject extensions(Set<String> extensions) {
+        if (extensions == null) {
+            return this;
+        }
+        this.extensions.addAll(extensions);
         return this;
     }
 
@@ -111,13 +139,9 @@ public class CreateProject {
         return this;
     }
 
-    public CreateProject codestartsEnabled(boolean value) {
-        setValue(CODESTARTS_ENABLED, value);
+    public CreateProject overrideExamples(Set<String> overrideExamples) {
+        setValue(OVERRIDE_EXAMPLES, overrideExamples);
         return this;
-    }
-
-    public CreateProject codestartsEnabled() {
-        return codestartsEnabled(true);
     }
 
     public CreateProject noExamples(boolean value) {
@@ -154,11 +178,6 @@ public class CreateProject {
         return this;
     }
 
-    public CreateProject buildTool(BuildTool buildTool) {
-        this.buildTool = requireNonNull(buildTool, "buildTool is required");
-        return this;
-    }
-
     public boolean doCreateProject(final Map<String, Object> context) throws QuarkusCommandException {
         if (context != null && !context.isEmpty()) {
             for (Map.Entry<String, Object> entry : context.entrySet()) {
@@ -179,8 +198,14 @@ public class CreateProject {
         } else {
             setValue(JAVA_TARGET, "11");
         }
-
-        final QuarkusProject quarkusProject = QuarkusProject.of(projectDirPath, platformDescr, buildTool);
+        if (containsSpringWeb(extensions)) {
+            setValue(IS_SPRING, true);
+            if (containsRESTEasy(extensions)) {
+                values.remove(CLASS_NAME);
+                values.remove(RESOURCE_PATH);
+            }
+        }
+        setValue(EXTENSIONS, extensions);
         final QuarkusCommandInvocation invocation = new QuarkusCommandInvocation(quarkusProject, values);
         return new CreateProjectCommandHandler().execute(invocation);
     }
@@ -194,7 +219,11 @@ public class CreateProject {
         return sourceType.orElse(SourceType.JAVA);
     }
 
-    private static boolean isSpringStyle(Collection<String> extensions) {
-        return extensions != null && extensions.stream().anyMatch(e -> e.toLowerCase().contains("spring-web"));
+    private static boolean containsSpringWeb(Collection<String> extensions) {
+        return extensions.stream().anyMatch(e -> e.toLowerCase().contains("spring-web"));
+    }
+
+    private static boolean containsRESTEasy(Collection<String> extensions) {
+        return extensions.isEmpty() || extensions.stream().anyMatch(e -> e.toLowerCase().contains("resteasy"));
     }
 }

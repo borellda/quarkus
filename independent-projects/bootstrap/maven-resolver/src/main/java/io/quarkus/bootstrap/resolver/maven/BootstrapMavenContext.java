@@ -89,7 +89,6 @@ public class BootstrapMavenContext {
     private static final String DEFAULT_REMOTE_REPO_URL = "https://repo.maven.apache.org/maven2";
     private static final String MAVEN_DOT_HOME = "maven.home";
     private static final String MAVEN_HOME = "MAVEN_HOME";
-    private static final String MAVEN_PROJECTBASEDIR = "MAVEN_PROJECTBASEDIR";
     private static final String MAVEN_SETTINGS = "maven.settings";
     private static final String SETTINGS_XML = "settings.xml";
 
@@ -794,28 +793,10 @@ public class BootstrapMavenContext {
     }
 
     public Path getRootProjectBaseDir() {
-        return rootProjectDir == null ? rootProjectDir = resolveRootProjectDir() : rootProjectDir;
-    }
-
-    private Path resolveRootProjectDir() {
-        final String rootBaseDir = System.getenv(MAVEN_PROJECTBASEDIR);
-        if (rootBaseDir == null) {
-            return null;
-        }
-        // if the alternate POM was set (not on the CLI) and its base dir does not match the base dir
-        // set by the Maven process then the root project set by the Maven process is probably not relevant too
-        if (alternatePomName != null) {
-            final Path currentPom = getCurrentProjectPomOrNull();
-            if (currentPom == null || !getCurrentProjectBaseDir().equals(currentPom.getParent())) {
-                return null;
-            }
-        }
-        final Path rootProjectBaseDirPath = Paths.get(rootBaseDir);
-        // if the root project dir set by the Maven process (through the env variable) doesn't have a pom.xml
-        // then it probably isn't relevant
-        if (!Files.exists(rootProjectBaseDirPath.resolve("pom.xml"))) {
-            return null;
-        }
-        return rootProjectBaseDirPath;
+        // originally we checked for MAVEN_PROJECTBASEDIR which is set by the mvn script
+        // and points to the first parent containing '.mvn' dir but it's not consistent
+        // with how Maven discovers the workspace and also created issues testing the Quarkus platform
+        // due to its specific FS layout
+        return rootProjectDir;
     }
 }

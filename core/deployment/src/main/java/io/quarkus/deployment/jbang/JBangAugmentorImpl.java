@@ -2,11 +2,15 @@ package io.quarkus.deployment.jbang;
 
 import java.io.File;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-
-import org.jboss.logging.Logger;
 
 import io.quarkus.bootstrap.BootstrapGradleException;
 import io.quarkus.bootstrap.app.AdditionalDependency;
@@ -28,15 +32,12 @@ import io.quarkus.deployment.builditem.LiveReloadBuildItem;
 import io.quarkus.deployment.builditem.MainClassBuildItem;
 import io.quarkus.deployment.builditem.TransformedClassesBuildItem;
 import io.quarkus.deployment.dev.DevModeContext;
-import io.quarkus.deployment.dev.IDEDevModeMain;
 import io.quarkus.deployment.pkg.builditem.ArtifactResultBuildItem;
 import io.quarkus.deployment.pkg.builditem.NativeImageBuildItem;
 import io.quarkus.deployment.pkg.builditem.ProcessInheritIODisabled;
 import io.quarkus.runtime.LaunchMode;
 
 public class JBangAugmentorImpl implements BiConsumer<CuratedApplication, Map<String, Object>> {
-
-    private static final Logger log = Logger.getLogger(IDEDevModeMain.class.getName());
 
     @Override
     public void accept(CuratedApplication curatedApplication, Map<String, Object> resultMap) {
@@ -58,7 +59,8 @@ public class JBangAugmentorImpl implements BiConsumer<CuratedApplication, Map<St
 
         builder.setLaunchMode(LaunchMode.NORMAL);
         builder.setRebuild(quarkusBootstrap.isRebuild());
-        builder.setLiveReloadState(new LiveReloadBuildItem(false, Collections.emptySet(), new HashMap<>()));
+        builder.setLiveReloadState(
+                new LiveReloadBuildItem(false, Collections.emptySet(), new HashMap<>(), null));
         for (AdditionalDependency i : quarkusBootstrap.getAdditionalApplicationArchives()) {
             //this gets added to the class path either way
             //but we only need to add it to the additional app archives

@@ -5,10 +5,12 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.eclipse.microprofile.reactive.messaging.Outgoing;
 import org.jboss.jandex.DotName;
 
+import io.smallrye.reactive.messaging.MutinyEmitter;
 import io.smallrye.reactive.messaging.annotations.Blocking;
 import io.smallrye.reactive.messaging.annotations.Broadcast;
 import io.smallrye.reactive.messaging.annotations.Channel;
 import io.smallrye.reactive.messaging.annotations.Emitter;
+import io.smallrye.reactive.messaging.annotations.Incomings;
 import io.smallrye.reactive.messaging.annotations.Merge;
 import io.smallrye.reactive.messaging.annotations.OnOverflow;
 
@@ -16,18 +18,24 @@ public final class ReactiveMessagingDotNames {
 
     static final DotName VOID = DotName.createSimple(void.class.getName());
     static final DotName INCOMING = DotName.createSimple(Incoming.class.getName());
+    static final DotName INCOMINGS = DotName.createSimple(Incomings.class.getName());
     static final DotName OUTGOING = DotName.createSimple(Outgoing.class.getName());
     static final DotName BLOCKING = DotName.createSimple(Blocking.class.getName());
-    static final DotName CHANNEL = DotName.createSimple(org.eclipse.microprofile.reactive.messaging.Channel.class.getName());
-    static final DotName LEGACY_CHANNEL = DotName.createSimple(Channel.class.getName());
-    static final DotName EMITTER = DotName.createSimple(org.eclipse.microprofile.reactive.messaging.Emitter.class.getName());
-    static final DotName LEGACY_EMITTER = DotName.createSimple(Emitter.class.getName());
+    public static final DotName CHANNEL = DotName
+            .createSimple(org.eclipse.microprofile.reactive.messaging.Channel.class.getName());
+    public static final DotName LEGACY_CHANNEL = DotName.createSimple(Channel.class.getName());
+    public static final DotName EMITTER = DotName
+            .createSimple(org.eclipse.microprofile.reactive.messaging.Emitter.class.getName());
+    public static final DotName MUTINY_EMITTER = DotName.createSimple(MutinyEmitter.class.getName());
+    public static final DotName LEGACY_EMITTER = DotName.createSimple(Emitter.class.getName());
     static final DotName ON_OVERFLOW = DotName
             .createSimple(org.eclipse.microprofile.reactive.messaging.OnOverflow.class.getName());
     static final DotName LEGACY_ON_OVERFLOW = DotName.createSimple(OnOverflow.class.getName());
     static final DotName ACKNOWLEDGMENT = DotName.createSimple(Acknowledgment.class.getName());
     static final DotName MERGE = DotName.createSimple(Merge.class.getName());
     static final DotName BROADCAST = DotName.createSimple(Broadcast.class.getName());
+
+    static final DotName SMALLRYE_BLOCKING = DotName.createSimple(io.smallrye.common.annotation.Blocking.class.getName());
 
     // Do not directly reference the MetricDecorator (due to its direct references to MP Metrics, which may not be present)
     static final DotName METRIC_DECORATOR = DotName.createSimple("io.smallrye.reactive.messaging.metrics.MetricDecorator");

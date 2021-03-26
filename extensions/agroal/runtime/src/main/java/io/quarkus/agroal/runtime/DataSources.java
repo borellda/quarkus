@@ -5,6 +5,7 @@ import java.sql.Driver;
 import java.sql.Statement;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -38,7 +39,6 @@ import io.quarkus.agroal.runtime.DataSourcesJdbcBuildTimeConfig.DataSourceJdbcOu
 import io.quarkus.agroal.runtime.DataSourcesJdbcRuntimeConfig.DataSourceJdbcOuterNamedRuntimeConfig;
 import io.quarkus.agroal.runtime.JdbcDriver.JdbcDriverLiteral;
 import io.quarkus.arc.Arc;
-import io.quarkus.arc.InstanceHandle;
 import io.quarkus.credentials.CredentialsProvider;
 import io.quarkus.credentials.runtime.CredentialsProviderFinder;
 import io.quarkus.datasource.common.runtime.DataSourceUtil;
@@ -46,7 +46,6 @@ import io.quarkus.datasource.runtime.DataSourceBuildTimeConfig;
 import io.quarkus.datasource.runtime.DataSourceRuntimeConfig;
 import io.quarkus.datasource.runtime.DataSourcesBuildTimeConfig;
 import io.quarkus.datasource.runtime.DataSourcesRuntimeConfig;
-import io.quarkus.runtime.configuration.ConfigurationException;
 
 /**
  * This class is sort of a producer for {@link AgroalDataSource}.
@@ -132,7 +131,9 @@ public class DataSources {
             } else {
                 errorMessage = "quarkus.datasource." + dataSourceName + ".jdbc.url has not been defined";
             }
-            throw new ConfigurationException(errorMessage);
+            //this is not an error situation, because we want to allow the situation where a JDBC extension
+            //is installed but has not been configured
+            return new UnconfiguredDataSource(errorMessage);
         }
 
         // we first make sure that all available JDBC drivers are loaded in the current TCCL
@@ -148,9 +149,9 @@ public class DataSources {
         }
 
         String resolvedDbKind = matchingSupportEntry.resolvedDbKind;
-        InstanceHandle<AgroalConnectionConfigurer> agroalConnectionConfigurerHandle = Arc.container().instance(
-                AgroalConnectionConfigurer.class,
-                new JdbcDriverLiteral(resolvedDbKind));
+        AgroalConnectionConfigurer agroalConnectionConfigurer = Arc.container()
+                .instance(AgroalConnectionConfigurer.class, new JdbcDriverLiteral(resolvedDbKind))
+                .orElse(new UnknownDbAgroalConnectionConfigurer());
 
         AgroalDataSourceConfigurationSupplier dataSourceConfiguration = new AgroalDataSourceConfigurationSupplier();
 
@@ -168,14 +169,10 @@ public class DataSources {
                 dataSourceJdbcBuildTimeConfig, dataSourceRuntimeConfig, dataSourceJdbcRuntimeConfig, mpMetricsPresent);
 
         if (dataSourceSupport.disableSslSupport) {
-            if (agroalConnectionConfigurerHandle.isAvailable()) {
-                agroalConnectionConfigurerHandle.get().disableSslSupport(resolvedDbKind,
-                        dataSourceConfiguration);
-            } else {
-                log.warnv("Agroal does not support disabling SSL for database kind: {0}",
-                        resolvedDbKind);
-            }
+            agroalConnectionConfigurer.disableSslSupport(resolvedDbKind, dataSourceConfiguration);
         }
+
+        agroalConnectionConfigurer.setExceptionSorter(resolvedDbKind, dataSourceConfiguration);
 
         // Explicit reference to bypass reflection need of the ServiceLoader used by AgroalDataSource#from
         AgroalDataSourceConfiguration agroalConfiguration = dataSourceConfiguration.get();
@@ -248,6 +245,11 @@ public class DataSources {
             String name = dataSourceRuntimeConfig.credentialsProvider.get();
             connectionFactoryConfiguration
                     .credential(new AgroalVaultCredentialsProviderPassword(name, credentialsProvider));
+        }
+
+        // Extra JDBC properties
+        for (Map.Entry<String, String> entry : dataSourceJdbcRuntimeConfig.additionalJdbcProperties.entrySet()) {
+            connectionFactoryConfiguration.jdbcProperty(entry.getKey(), entry.getValue());
         }
 
         // Pool size configuration:

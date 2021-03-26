@@ -1,5 +1,7 @@
 package io.quarkus.vertx.web.deployment;
 
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -25,6 +27,7 @@ import io.quarkus.gizmo.ResultHandle;
 import io.quarkus.vertx.web.runtime.MultiJsonArraySupport;
 import io.quarkus.vertx.web.runtime.MultiSseSupport;
 import io.quarkus.vertx.web.runtime.MultiSupport;
+import io.quarkus.vertx.web.runtime.RouteHandler;
 import io.quarkus.vertx.web.runtime.RouteHandlers;
 import io.quarkus.vertx.web.runtime.ValidationSupport;
 import io.smallrye.mutiny.Multi;
@@ -90,8 +93,6 @@ class Methods {
             Void.TYPE, Multi.class, RoutingContext.class);
     static final MethodDescriptor MULTI_SUBSCRIBE_BUFFER = MethodDescriptor.ofMethod(MultiSupport.class, "subscribeBuffer",
             Void.TYPE, Multi.class, RoutingContext.class);
-    static final MethodDescriptor MULTI_SUBSCRIBE_RX_BUFFER = MethodDescriptor.ofMethod(MultiSupport.class, "subscribeRxBuffer",
-            Void.TYPE, Multi.class, RoutingContext.class);
     static final MethodDescriptor MULTI_SUBSCRIBE_MUTINY_BUFFER = MethodDescriptor.ofMethod(MultiSupport.class,
             "subscribeMutinyBuffer", Void.TYPE, Multi.class, RoutingContext.class);
     static final MethodDescriptor MULTI_SUBSCRIBE_OBJECT = MethodDescriptor.ofMethod(MultiSupport.class, "subscribeObject",
@@ -103,9 +104,6 @@ class Methods {
             Void.TYPE, Multi.class, RoutingContext.class);
     static final MethodDescriptor MULTI_SSE_SUBSCRIBE_BUFFER = MethodDescriptor.ofMethod(MultiSseSupport.class,
             "subscribeBuffer",
-            Void.TYPE, Multi.class, RoutingContext.class);
-    static final MethodDescriptor MULTI_SSE_SUBSCRIBE_RX_BUFFER = MethodDescriptor.ofMethod(MultiSseSupport.class,
-            "subscribeRxBuffer",
             Void.TYPE, Multi.class, RoutingContext.class);
     static final MethodDescriptor MULTI_SSE_SUBSCRIBE_MUTINY_BUFFER = MethodDescriptor.ofMethod(MultiSseSupport.class,
             "subscribeMutinyBuffer", Void.TYPE, Multi.class, RoutingContext.class);
@@ -121,8 +119,6 @@ class Methods {
             "subscribeString", Void.TYPE, Multi.class, RoutingContext.class);
     static final MethodDescriptor MULTI_JSON_SUBSCRIBE_BUFFER = MethodDescriptor.ofMethod(MultiJsonArraySupport.class,
             "subscribeBuffer", Void.TYPE, Multi.class, RoutingContext.class);
-    static final MethodDescriptor MULTI_JSON_SUBSCRIBE_RX_BUFFER = MethodDescriptor.ofMethod(MultiJsonArraySupport.class,
-            "subscribeRxBuffer", Void.TYPE, Multi.class, RoutingContext.class);
     static final MethodDescriptor MULTI_JSON_SUBSCRIBE_MUTINY_BUFFER = MethodDescriptor.ofMethod(MultiJsonArraySupport.class,
             "subscribeMutinyBuffer", Void.TYPE, Multi.class, RoutingContext.class);
     static final MethodDescriptor MULTI_JSON_SUBSCRIBE_OBJECT = MethodDescriptor.ofMethod(MultiJsonArraySupport.class,
@@ -137,9 +133,6 @@ class Methods {
             .ofMethod(HttpServerResponse.class, "end", Void.TYPE, Buffer.class);
     static final MethodDescriptor SET_STATUS = MethodDescriptor
             .ofMethod(HttpServerResponse.class, "setStatusCode", HttpServerResponse.class, Integer.TYPE);
-    static final MethodDescriptor RX_GET_DELEGATE = MethodDescriptor
-            .ofMethod(io.vertx.reactivex.core.buffer.Buffer.class, "getDelegate", Buffer.class);
-
     static final MethodDescriptor MUTINY_GET_DELEGATE = MethodDescriptor
             .ofMethod(io.vertx.mutiny.core.buffer.Buffer.class, "getDelegate", Buffer.class);
     static final MethodDescriptor JSON_ENCODE = MethodDescriptor
@@ -167,7 +160,7 @@ class Methods {
             .ofMethod(InjectableBean.class, "destroy",
                     void.class, Object.class,
                     CreationalContext.class);
-    static final MethodDescriptor OBJECT_CONSTRUCTOR = MethodDescriptor.ofConstructor(Object.class);
+    static final MethodDescriptor ROUTE_HANDLER_CONSTRUCTOR = MethodDescriptor.ofConstructor(RouteHandler.class);
 
     static final MethodDescriptor ROUTE_HANDLERS_SET_CONTENT_TYPE = MethodDescriptor
             .ofMethod(RouteHandlers.class, "setContentType", void.class, RoutingContext.class, String.class);
@@ -197,6 +190,27 @@ class Methods {
             boolean.class, Class.class);
     static final MethodDescriptor GET_CLASS = MethodDescriptor.ofMethod(Object.class, "getClass", Class.class);
 
+    static final MethodDescriptor STRING_CHAR_AT = MethodDescriptor.ofMethod(String.class, "charAt", int.class);
+    static final MethodDescriptor INTEGER_VALUE_OF = MethodDescriptor.ofMethod(Integer.class, "valueOf", Integer.class,
+            String.class);
+    static final MethodDescriptor LONG_VALUE_OF = MethodDescriptor.ofMethod(Long.class, "valueOf", Long.class, String.class);
+    static final MethodDescriptor BOOLEAN_VALUE_OF = MethodDescriptor.ofMethod(Boolean.class, "valueOf", Boolean.class,
+            String.class);
+    static final MethodDescriptor CHARACTER_VALUE_OF = MethodDescriptor.ofMethod(Character.class, "valueOf", Character.class,
+            char.class);
+    static final MethodDescriptor FLOAT_VALUE_OF = MethodDescriptor.ofMethod(Float.class, "valueOf", Float.class, String.class);
+    static final MethodDescriptor DOUBLE_VALUE_OF = MethodDescriptor.ofMethod(Double.class, "valueOf", Double.class,
+            String.class);
+    static final MethodDescriptor SHORT_VALUE_OF = MethodDescriptor.ofMethod(Short.class, "valueOf", Short.class, String.class);
+    static final MethodDescriptor BYTE_VALUE_OF = MethodDescriptor.ofMethod(Byte.class, "valueOf", Byte.class, String.class);
+
+    static final MethodDescriptor COLLECTION_SIZE = MethodDescriptor.ofMethod(Collection.class, "size", int.class);
+    static final MethodDescriptor COLLECTION_ITERATOR = MethodDescriptor.ofMethod(Collection.class, "iterator", Iterator.class);
+    static final MethodDescriptor COLLECTION_ADD = MethodDescriptor.ofMethod(Collection.class, "add", boolean.class,
+            Object.class);
+    static final MethodDescriptor ITERATOR_NEXT = MethodDescriptor.ofMethod(Iterator.class, "next", Object.class);
+    static final MethodDescriptor ITERATOR_HAS_NEXT = MethodDescriptor.ofMethod(Iterator.class, "hasNext", boolean.class);
+
     private Methods() {
         // Avoid direct instantiation
     }
@@ -218,8 +232,7 @@ class Methods {
     }
 
     static MethodDescriptor getEndMethodForContentType(HandlerDescriptor descriptor) {
-        if (descriptor.isContentTypeBuffer() || descriptor.isContentTypeRxBuffer() || descriptor
-                .isContentTypeMutinyBuffer()) {
+        if (descriptor.isContentTypeBuffer() || descriptor.isContentTypeMutinyBuffer()) {
             return END_WITH_BUFFER;
         }
         return END_WITH_STRING;

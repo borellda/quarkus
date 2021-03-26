@@ -23,22 +23,25 @@ import io.quarkus.agroal.spi.JdbcDriverBuildItem;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
 import io.quarkus.arc.processor.BuiltinScope;
 import io.quarkus.datasource.common.runtime.DatabaseKind;
+import io.quarkus.datasource.deployment.spi.DefaultDataSourceDbKindBuildItem;
+import io.quarkus.datasource.deployment.spi.DevServicesDatasourceConfigurationHandlerBuildItem;
 import io.quarkus.deployment.Capabilities;
 import io.quarkus.deployment.Capability;
 import io.quarkus.deployment.Feature;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
-import io.quarkus.deployment.annotations.ExecutionTime;
-import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.NativeImageEnableAllCharsetsBuildItem;
 import io.quarkus.deployment.builditem.NativeImageEnableAllTimeZonesBuildItem;
-import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
 import io.quarkus.deployment.builditem.SslNativeConfigBuildItem;
+import io.quarkus.deployment.builditem.SystemPropertyBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageProxyDefinitionBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.NativeImageSystemPropertyBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
+import io.quarkus.deployment.pkg.steps.NativeOrNativeSourcesBuild;
 import io.quarkus.jdbc.mysql.runtime.MySQLAgroalConnectionConfigurer;
-import io.quarkus.jdbc.mysql.runtime.MySQLRecorder;
+import io.quarkus.jdbc.mysql.runtime.MySQLServiceBindingConverter;
 
 public class JDBCMySQLProcessor {
 
@@ -55,6 +58,11 @@ public class JDBCMySQLProcessor {
     }
 
     @BuildStep
+    DevServicesDatasourceConfigurationHandlerBuildItem devDbHandler() {
+        return DevServicesDatasourceConfigurationHandlerBuildItem.jdbc(DatabaseKind.MYSQL);
+    }
+
+    @BuildStep
     void configureAgroalConnection(BuildProducer<AdditionalBeanBuildItem> additionalBeans,
             Capabilities capabilities) {
         if (capabilities.isPresent(Capability.AGROAL)) {
@@ -63,12 +71,6 @@ public class JDBCMySQLProcessor {
                     .setUnremovable()
                     .build());
         }
-    }
-
-    @BuildStep
-    @Record(ExecutionTime.RUNTIME_INIT)
-    void abandonedConnectionCleanUp(MySQLRecorder recorder, ShutdownContextBuildItem shutdownContextBuildItem) {
-        recorder.startAbandonedConnectionCleanup(shutdownContextBuildItem);
     }
 
     @BuildStep
@@ -84,6 +86,16 @@ public class JDBCMySQLProcessor {
     @BuildStep
     NativeImageEnableAllTimeZonesBuildItem enableAllTimeZones() {
         return new NativeImageEnableAllTimeZonesBuildItem();
+    }
+
+    @BuildStep
+    NativeImageSystemPropertyBuildItem disableAbandonedConnectionCleanUpInNativeMode() {
+        return new NativeImageSystemPropertyBuildItem("com.mysql.cj.disableAbandonedConnectionCleanup", "true");
+    }
+
+    @BuildStep(onlyIfNot = NativeOrNativeSourcesBuild.class)
+    SystemPropertyBuildItem disableAbandonedConnectionCleanUpInJVMMode() {
+        return new SystemPropertyBuildItem("com.mysql.cj.disableAbandonedConnectionCleanup", "true");
     }
 
     @BuildStep
@@ -110,5 +122,17 @@ public class JDBCMySQLProcessor {
                 new NativeImageProxyDefinitionBuildItem(ResultSetInternalMethods.class.getName(),
                         WarningListener.class.getName(), Resultset.class.getName()));
         return proxies;
+    }
+
+    @BuildStep
+    void registerServiceBinding(Capabilities capabilities,
+            BuildProducer<ServiceProviderBuildItem> serviceProvider,
+            BuildProducer<DefaultDataSourceDbKindBuildItem> dbKind) {
+        if (capabilities.isPresent(Capability.KUBERNETES_SERVICE_BINDING)) {
+            serviceProvider.produce(
+                    new ServiceProviderBuildItem("io.quarkus.kubernetes.service.binding.runtime.ServiceBindingConverter",
+                            MySQLServiceBindingConverter.class.getName()));
+        }
+        dbKind.produce(new DefaultDataSourceDbKindBuildItem(DatabaseKind.MYSQL));
     }
 }

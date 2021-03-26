@@ -1,5 +1,8 @@
 package io.quarkus.hibernate.orm.panache.common.runtime;
 
+import static io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME;
+
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -12,7 +15,11 @@ import javax.persistence.Query;
 import javax.transaction.SystemException;
 import javax.transaction.TransactionManager;
 
+import io.agroal.api.AgroalDataSource;
+import io.quarkus.agroal.DataSource;
 import io.quarkus.arc.Arc;
+import io.quarkus.arc.ArcContainer;
+import io.quarkus.arc.InstanceHandle;
 import io.quarkus.hibernate.orm.PersistenceUnit;
 import io.quarkus.hibernate.orm.runtime.PersistenceUnitUtil;
 import io.quarkus.panache.common.Parameters;
@@ -20,28 +27,64 @@ import io.quarkus.panache.common.Sort;
 import io.quarkus.panache.hibernate.common.runtime.PanacheJpaUtil;
 
 public abstract class AbstractJpaOperations<PanacheQueryType> {
+    private static volatile Map<String, String> entityToPersistenceUnit = Collections.emptyMap();
+
+    public static void setEntityToPersistenceUnit(Map<String, String> map) {
+        entityToPersistenceUnit = Collections.unmodifiableMap(map);
+    }
 
     protected abstract PanacheQueryType createPanacheQuery(EntityManager em, String query, String orderBy,
             Object paramsArrayOrMap);
 
-    protected abstract List<?> list(PanacheQueryType query);
+    public abstract List<?> list(PanacheQueryType query);
 
-    protected abstract Stream<?> stream(PanacheQueryType query);
+    public abstract Stream<?> stream(PanacheQueryType query);
 
-    public abstract EntityManager getEntityManager(Class<?> clazz);
-
-    public EntityManager getEntityManager(String persistentUnitName) {
-        if (persistentUnitName == null || PersistenceUnitUtil.isDefaultPersistenceUnit(persistentUnitName)) {
-            return Arc.container().instance(EntityManager.class).get();
-        }
-
-        PersistenceUnit.PersistenceUnitLiteral persistenceUnitLiteral = new PersistenceUnit.PersistenceUnitLiteral(
-                persistentUnitName);
-        return Arc.container().instance(EntityManager.class, persistenceUnitLiteral).get();
+    /**
+     * Returns the {@link EntityManager} for the given {@link Class<?> entity}
+     *
+     * @return {@link EntityManager}
+     */
+    public static EntityManager getEntityManager(Class<?> clazz) {
+        String clazzName = clazz.getName();
+        String persistentUnitName = entityToPersistenceUnit.get(clazzName);
+        return getEntityManager(persistentUnitName);
     }
 
-    public EntityManager getEntityManager() {
-        return getEntityManager(PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME);
+    public static EntityManager getEntityManager(String persistentUnitName) {
+        ArcContainer arcContainer = Arc.container();
+        if (persistentUnitName == null || PersistenceUnitUtil.isDefaultPersistenceUnit(persistentUnitName)) {
+            InstanceHandle<EntityManager> emHandle = arcContainer.instance(EntityManager.class);
+            if (emHandle.isAvailable()) {
+                return emHandle.get();
+            }
+            if (!arcContainer.instance(AgroalDataSource.class).isAvailable()) {
+                throw new IllegalStateException(
+                        "The default datasource has not been properly configured. See https://quarkus.io/guides/datasource#jdbc-datasource for information on how to do that.");
+            }
+            throw new IllegalStateException(
+                    "No entities were found. Did you forget to annotate your Panache Entity classes with '@Entity'?");
+        }
+
+        InstanceHandle<EntityManager> emHandle = arcContainer.instance(EntityManager.class,
+                new PersistenceUnit.PersistenceUnitLiteral(persistentUnitName));
+        if (emHandle.isAvailable()) {
+            return emHandle.get();
+        }
+        if (!arcContainer.instance(AgroalDataSource.class,
+                new DataSource.DataSourceLiteral(persistentUnitName)).isAvailable()) {
+            throw new IllegalStateException(
+                    "The named datasource '" + persistentUnitName
+                            + "' has not been properly configured. See https://quarkus.io/guides/datasource#multiple-datasources for information on how to do that.");
+        }
+        throw new IllegalStateException(
+                "No entities were attached to persistence unit '" + persistentUnitName
+                        + "'. Did you forget to annotate your Panache Entity classes with '@Entity' or improperly configure the 'quarkus.hibernate-orm.\" "
+                        + persistentUnitName + "\".packages' property?");
+    }
+
+    public static EntityManager getEntityManager() {
+        return getEntityManager(DEFAULT_PERSISTENCE_UNIT_NAME);
     }
     //
     // Instance methods
@@ -83,13 +126,17 @@ public abstract class AbstractJpaOperations<PanacheQueryType> {
         return getEntityManager(entity.getClass()).contains(entity);
     }
 
+    public void flush() {
+        getEntityManager().flush();
+    }
+
     public void flush(Object entityClass) {
         getEntityManager(entityClass.getClass()).flush();
     }
     //
     // Private stuff
 
-    public TransactionManager getTransactionManager() {
+    public static TransactionManager getTransactionManager() {
         return Arc.container().instance(TransactionManager.class).get();
     }
 
@@ -295,7 +342,7 @@ public abstract class AbstractJpaOperations<PanacheQueryType> {
     }
 
     public long deleteAll(Class<?> entityClass) {
-        return (long) getEntityManager(entityClass).createQuery("DELETE FROM " + PanacheJpaUtil.getEntityName(entityClass))
+        return getEntityManager(entityClass).createQuery("DELETE FROM " + PanacheJpaUtil.getEntityName(entityClass))
                 .executeUpdate();
     }
 
@@ -330,7 +377,7 @@ public abstract class AbstractJpaOperations<PanacheQueryType> {
         return delete(entityClass, query, params.map());
     }
 
-    public IllegalStateException implementationInjectionMissing() {
+    public static IllegalStateException implementationInjectionMissing() {
         return new IllegalStateException(
                 "This method is normally automatically overridden in subclasses: did you forget to annotate your entity with @Entity?");
     }
@@ -338,8 +385,8 @@ public abstract class AbstractJpaOperations<PanacheQueryType> {
     /**
      * Execute update on default persistence unit
      */
-    public int executeUpdate(String query, Object... params) {
-        Query jpaQuery = getEntityManager(PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME).createQuery(query);
+    public static int executeUpdate(String query, Object... params) {
+        Query jpaQuery = getEntityManager(DEFAULT_PERSISTENCE_UNIT_NAME).createQuery(query);
         bindParameters(jpaQuery, params);
         return jpaQuery.executeUpdate();
     }
@@ -347,8 +394,8 @@ public abstract class AbstractJpaOperations<PanacheQueryType> {
     /**
      * Execute update on default persistence unit
      */
-    public int executeUpdate(String query, Map<String, Object> params) {
-        Query jpaQuery = getEntityManager(PersistenceUnitUtil.DEFAULT_PERSISTENCE_UNIT_NAME).createQuery(query);
+    public static int executeUpdate(String query, Map<String, Object> params) {
+        Query jpaQuery = getEntityManager(DEFAULT_PERSISTENCE_UNIT_NAME).createQuery(query);
         bindParameters(jpaQuery, params);
         return jpaQuery.executeUpdate();
     }
@@ -387,7 +434,7 @@ public abstract class AbstractJpaOperations<PanacheQueryType> {
         return executeUpdate(entityClass, query, params);
     }
 
-    public void setRollbackOnly() {
+    public static void setRollbackOnly() {
         try {
             getTransactionManager().setRollbackOnly();
         } catch (SystemException e) {

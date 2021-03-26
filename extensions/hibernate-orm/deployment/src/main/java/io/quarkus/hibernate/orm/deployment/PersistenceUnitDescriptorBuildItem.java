@@ -1,6 +1,7 @@
 package io.quarkus.hibernate.orm.deployment;
 
 import java.util.Collection;
+import java.util.List;
 
 import org.hibernate.MultiTenancyStrategy;
 import org.hibernate.jpa.boot.internal.ParsedPersistenceXmlDescriptor;
@@ -8,6 +9,7 @@ import org.hibernate.jpa.boot.internal.ParsedPersistenceXmlDescriptor;
 import io.quarkus.builder.item.MultiBuildItem;
 import io.quarkus.datasource.common.runtime.DataSourceUtil;
 import io.quarkus.hibernate.orm.runtime.boot.QuarkusPersistenceUnitDefinition;
+import io.quarkus.hibernate.orm.runtime.integration.HibernateOrmIntegrationStaticDescriptor;
 
 /**
  * Not to be confused with PersistenceXmlDescriptorBuildItem, which holds
@@ -22,42 +24,27 @@ public final class PersistenceUnitDescriptorBuildItem extends MultiBuildItem {
     private final MultiTenancyStrategy multiTenancyStrategy;
     private final String multiTenancySchemaDataSource;
     private final boolean isReactive;
+    private final boolean fromPersistenceXml;
 
-    public PersistenceUnitDescriptorBuildItem(ParsedPersistenceXmlDescriptor descriptor, boolean isReactive) {
+    public PersistenceUnitDescriptorBuildItem(ParsedPersistenceXmlDescriptor descriptor, boolean isReactive,
+            boolean fromPersistenceXml) {
         this.descriptor = descriptor;
         this.dataSource = DataSourceUtil.DEFAULT_DATASOURCE_NAME;
         this.multiTenancyStrategy = MultiTenancyStrategy.NONE;
         this.multiTenancySchemaDataSource = null;
         this.isReactive = isReactive;
-    }
-
-    public PersistenceUnitDescriptorBuildItem(ParsedPersistenceXmlDescriptor descriptor,
-            MultiTenancyStrategy multiTenancyStrategy,
-            String multiTenancySchemaDataSource,
-            boolean isReactive) {
-        this.descriptor = descriptor;
-        this.dataSource = DataSourceUtil.DEFAULT_DATASOURCE_NAME;
-        this.multiTenancyStrategy = multiTenancyStrategy;
-        this.multiTenancySchemaDataSource = multiTenancySchemaDataSource;
-        this.isReactive = isReactive;
+        this.fromPersistenceXml = fromPersistenceXml;
     }
 
     public PersistenceUnitDescriptorBuildItem(ParsedPersistenceXmlDescriptor descriptor, String dataSource,
-            boolean isReactive) {
-        this.descriptor = descriptor;
-        this.dataSource = dataSource;
-        this.multiTenancyStrategy = MultiTenancyStrategy.NONE;
-        this.multiTenancySchemaDataSource = null;
-        this.isReactive = isReactive;
-    }
-
-    public PersistenceUnitDescriptorBuildItem(ParsedPersistenceXmlDescriptor descriptor, String dataSource,
-            MultiTenancyStrategy multiTenancyStrategy, String multiTenancySchemaDataSource, boolean isReactive) {
+            MultiTenancyStrategy multiTenancyStrategy, String multiTenancySchemaDataSource, boolean isReactive,
+            boolean fromPersistenceXml) {
         this.descriptor = descriptor;
         this.dataSource = dataSource;
         this.multiTenancyStrategy = multiTenancyStrategy;
         this.multiTenancySchemaDataSource = multiTenancySchemaDataSource;
         this.isReactive = isReactive;
+        this.fromPersistenceXml = fromPersistenceXml;
     }
 
     public Collection<String> getManagedClassNames() {
@@ -84,7 +71,9 @@ public final class PersistenceUnitDescriptorBuildItem extends MultiBuildItem {
         return multiTenancySchemaDataSource;
     }
 
-    public QuarkusPersistenceUnitDefinition asOutputPersistenceUnitDefinition() {
-        return new QuarkusPersistenceUnitDefinition(descriptor, dataSource, multiTenancyStrategy, isReactive);
+    public QuarkusPersistenceUnitDefinition asOutputPersistenceUnitDefinition(
+            List<HibernateOrmIntegrationStaticDescriptor> integrationStaticDescriptors) {
+        return new QuarkusPersistenceUnitDefinition(descriptor, dataSource, multiTenancyStrategy, isReactive,
+                fromPersistenceXml, integrationStaticDescriptors);
     }
 }

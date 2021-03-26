@@ -6,6 +6,7 @@ import javax.inject.Inject;
 
 import org.jboss.logging.Logger;
 
+import io.quarkus.arc.AlternativePriority;
 import io.quarkus.oidc.AccessTokenCredential;
 import io.quarkus.oidc.IdTokenCredential;
 import io.quarkus.oidc.OIDCException;
@@ -28,8 +29,8 @@ public class OidcTokenCredentialProducer {
     @RequestScoped
     IdTokenCredential currentIdToken() {
         IdTokenCredential cred = identity.getCredential(IdTokenCredential.class);
-        if (cred == null) {
-            LOG.trace("IdTokenCredential is null");
+        if (cred == null || cred.getToken() == null) {
+            LOG.trace("IdToken is null");
             cred = new IdTokenCredential();
         }
         return cred;
@@ -37,10 +38,11 @@ public class OidcTokenCredentialProducer {
 
     @Produces
     @RequestScoped
+    @AlternativePriority(1)
     AccessTokenCredential currentAccessToken() {
         AccessTokenCredential cred = identity.getCredential(AccessTokenCredential.class);
-        if (cred == null) {
-            LOG.trace("AccessTokenCredential is null");
+        if (cred == null || cred.getToken() == null) {
+            LOG.trace("AccessToken is null");
             cred = new AccessTokenCredential();
         }
         return cred;
@@ -65,7 +67,7 @@ public class OidcTokenCredentialProducer {
     @Produces
     @RequestScoped
     UserInfo currentUserInfo() {
-        UserInfo userInfo = (UserInfo) identity.getAttribute("userinfo");
+        UserInfo userInfo = (UserInfo) identity.getAttribute(OidcUtils.USER_INFO_ATTRIBUTE);
         if (userInfo == null) {
             throw new OIDCException("UserInfo can not be injected");
         }

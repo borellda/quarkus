@@ -8,6 +8,8 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import org.hibernate.engine.query.spi.QueryPlanCache;
+
 import io.quarkus.runtime.annotations.ConfigDocSection;
 import io.quarkus.runtime.annotations.ConfigGroup;
 import io.quarkus.runtime.annotations.ConfigItem;
@@ -74,7 +76,7 @@ public class HibernateOrmConfigPersistenceUnit {
      * The size of the batches used when loading entities and collections.
      *
      * `-1` means batch loading is disabled. This is the default.
-     * 
+     *
      * @deprecated {@link #fetch} should be used to configure fetching properties.
      * @asciidoclet
      */
@@ -86,7 +88,7 @@ public class HibernateOrmConfigPersistenceUnit {
      * The maximum depth of outer join fetch tree for single-ended associations (one-to-one, many-to-one).
      *
      * A `0` disables default outer join fetching.
-     * 
+     *
      * @deprecated {@link #fetch} should be used to configure fetching properties.
      * @asciidoclet
      */
@@ -130,13 +132,6 @@ public class HibernateOrmConfigPersistenceUnit {
     @ConfigItem
     @ConfigDocSection
     public HibernateOrmConfigPersistenceUnitJdbc jdbc;
-
-    /**
-     * Logging configuration.
-     */
-    @ConfigItem
-    @ConfigDocSection
-    public HibernateOrmConfigPersistenceUnitLog log;
 
     /**
      * Fetching logic configuration.
@@ -191,7 +186,6 @@ public class HibernateOrmConfigPersistenceUnit {
                 query.isAnyPropertySet() ||
                 database.isAnyPropertySet() ||
                 jdbc.isAnyPropertySet() ||
-                log.isAnyPropertySet() ||
                 !cache.isEmpty() ||
                 !secondLevelCachingEnabled ||
                 multitenant.isPresent() ||
@@ -239,11 +233,20 @@ public class HibernateOrmConfigPersistenceUnit {
     @ConfigGroup
     public static class HibernateOrmConfigPersistenceUnitQuery {
 
+        private static final int DEFAULT_QUERY_PLAN_CACHE_MAX_SIZE = 2048;
+
+        public enum NullOrdering {
+            NONE,
+            FIRST,
+            LAST
+        }
+
         /**
          * The maximum size of the query plan cache.
+         * see #{@value QueryPlanCache#DEFAULT_QUERY_PLAN_MAX_COUNT}
          */
-        @ConfigItem
-        public Optional<String> queryPlanCacheMaxSize;
+        @ConfigItem(defaultValue = "2048")
+        public int queryPlanCacheMaxSize;
 
         /**
          * Default precedence of null values in `ORDER BY` clauses.
@@ -252,11 +255,12 @@ public class HibernateOrmConfigPersistenceUnit {
          *
          * @asciidoclet
          */
-        @ConfigItem
-        public Optional<String> defaultNullOrdering;
+        @ConfigItem(defaultValue = "none")
+        public NullOrdering defaultNullOrdering;
 
         public boolean isAnyPropertySet() {
-            return queryPlanCacheMaxSize.isPresent() || defaultNullOrdering.isPresent();
+            return queryPlanCacheMaxSize != DEFAULT_QUERY_PLAN_CACHE_MAX_SIZE
+                    || defaultNullOrdering != NullOrdering.NONE;
         }
     }
 
@@ -264,12 +268,6 @@ public class HibernateOrmConfigPersistenceUnit {
     public static class HibernateOrmConfigPersistenceUnitDatabase {
 
         private static final String DEFAULT_CHARSET = "UTF-8";
-
-        /**
-         * Schema generation configuration.
-         */
-        @ConfigItem
-        public HibernateOrmConfigPersistenceUnitDatabaseGeneration generation;
 
         /**
          * The default catalog to use for the database objects.
@@ -298,43 +296,10 @@ public class HibernateOrmConfigPersistenceUnit {
         public boolean globallyQuotedIdentifiers;
 
         public boolean isAnyPropertySet() {
-            return generation.isAnyPropertySet()
-                    || defaultCatalog.isPresent()
+            return defaultCatalog.isPresent()
                     || defaultSchema.isPresent()
                     || !DEFAULT_CHARSET.equals(charset.name())
                     || globallyQuotedIdentifiers;
-        }
-    }
-
-    @ConfigGroup
-    public static class HibernateOrmConfigPersistenceUnitDatabaseGeneration {
-
-        /**
-         * Select whether the database schema is generated or not.
-         *
-         * `drop-and-create` is awesome in development mode.
-         *
-         * Accepted values: `none`, `create`, `drop-and-create`, `drop`, `update`.
-         */
-        @ConfigItem(name = ConfigItem.PARENT, defaultValue = "none")
-        public String generation;
-
-        /**
-         * If Hibernate ORM should create the schemas automatically (for databases supporting them).
-         */
-        @ConfigItem
-        public boolean createSchemas;
-
-        /**
-         * Whether we should stop on the first error when applying the schema.
-         */
-        @ConfigItem
-        public boolean haltOnError;
-
-        public boolean isAnyPropertySet() {
-            return !"none".equals(generation)
-                    || createSchemas
-                    || haltOnError;
         }
     }
 
@@ -376,13 +341,19 @@ public class HibernateOrmConfigPersistenceUnit {
         public boolean sql;
 
         /**
+         * Format the SQL logs if SQL log is enabled
+         */
+        @ConfigItem(defaultValue = "true")
+        public boolean formatSql;
+
+        /**
          * Whether JDBC warnings should be collected and logged.
          */
         @ConfigItem(defaultValueDocumentation = "depends on dialect")
         public Optional<Boolean> jdbcWarnings;
 
         public boolean isAnyPropertySet() {
-            return sql || jdbcWarnings.isPresent();
+            return sql || !formatSql || jdbcWarnings.isPresent();
         }
     }
 
@@ -435,7 +406,7 @@ public class HibernateOrmConfigPersistenceUnit {
          * The maximum depth of outer join fetch tree for single-ended associations (one-to-one, many-to-one).
          *
          * A `0` disables default outer join fetching.
-         * 
+         *
          * @asciidoclet
          */
         @ConfigItem

@@ -7,7 +7,6 @@
     <artifactId>quarkus-integration-tests-parent</artifactId>
     <groupId>io.quarkus</groupId>
     <version>999-SNAPSHOT</version>
-    <relativePath>../</relativePath>
   </parent>
 
   <artifactId>quarkus-integration-test-elasticsearch-rest-client</artifactId>
@@ -121,7 +120,7 @@
       <id>test-elasticsearch</id>
       <activation>
         <property>
-          <name>test-elasticsearch</name>
+          <name>test-containers</name>
         </property>
       </activation>
       <build>
@@ -146,7 +145,7 @@
       <id>docker-elasticsearch</id>
       <activation>
         <property>
-          <name>docker</name>
+          <name>start-containers</name>
         </property>
       </activation>
       <properties>
@@ -217,7 +216,7 @@
                   <goal>exec</goal>
                 </goals>
                 <configuration>
-                  <executable>${basedir}/../../.github/docker-prune.sh</executable>
+                  <executable>${docker-prune.location}</executable>
                 </configuration>
               </execution>
             </executions>
@@ -226,36 +225,5 @@
       </build>
     </profile>
 
-    <profile>
-      <id>native</id>
-      <activation>
-        <property>
-          <name>native</name>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <artifactId>maven-failsafe-plugin</artifactId>
-            <executions>
-              <execution>
-                <goals>
-                  <goal>integration-test</goal>
-                  <goal>verify</goal>
-                </goals>
-                <configuration>
-                  <systemProperties>
-                    <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
-                  </systemProperties>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-      <properties>
-        <quarkus.package.type>native</quarkus.package.type>
-      </properties>
-    </profile>
   </profiles>
 </project>

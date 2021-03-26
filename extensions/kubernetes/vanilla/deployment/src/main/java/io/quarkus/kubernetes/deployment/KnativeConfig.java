@@ -91,6 +91,7 @@ public class KnativeConfig implements PlatformConfiguration {
 
     /**
      * The host under which the application is going to be exposed
+     *
      */
     @ConfigItem
     Optional<String> host;
@@ -130,6 +131,12 @@ public class KnativeConfig implements PlatformConfiguration {
      */
     @ConfigItem
     ProbeConfig readinessProbe;
+
+    /**
+     * Prometheus configuration
+     */
+    @ConfigItem
+    PrometheusConfig prometheus;
 
     /**
      * Volume mounts
@@ -196,6 +203,12 @@ public class KnativeConfig implements PlatformConfiguration {
      */
     @ConfigItem
     Map<String, HostAliasConfig> hostAliases;
+
+    /**
+     * Resources requirements
+     */
+    @ConfigItem
+    ResourcesConfig resources;
 
     public Optional<String> getPartOf() {
         return partOf;
@@ -275,6 +288,10 @@ public class KnativeConfig implements PlatformConfiguration {
         return readinessProbe;
     }
 
+    public PrometheusConfig getPrometheusConfig() {
+        return prometheus;
+    }
+
     public Map<String, MountConfig> getMounts() {
         return mounts;
     }
@@ -317,6 +334,10 @@ public class KnativeConfig implements PlatformConfiguration {
 
     public Map<String, HostAliasConfig> getHostAliases() {
         return hostAliases;
+    }
+
+    public ResourcesConfig getResources() {
+        return resources;
     }
 
     /**
@@ -390,4 +411,35 @@ public class KnativeConfig implements PlatformConfiguration {
      * Global autoscaling configuration.
      */
     GlobalAutoScalingConfig globalAutoScaling;
+
+    /**
+     * The name of the revision.
+     */
+    Optional<String> revisionName;
+
+    /**
+     * Traffic configuration.
+     */
+    Map<String, TrafficConfig> traffic;
+
+    /**
+     * If set, the secret will mounted to the application container and its contents will be used for application configuration.
+     */
+    @ConfigItem
+    Optional<String> appSecret;
+
+    /**
+     * If set, the config amp will mounted to the application container and its contents will be used for application
+     * configuration.
+     */
+    @ConfigItem
+    Optional<String> appConfigMap;
+
+    public Optional<String> getAppSecret() {
+        return this.appSecret;
+    }
+
+    public Optional<String> getAppConfigMap() {
+        return this.appConfigMap;
+    }
 }

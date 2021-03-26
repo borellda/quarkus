@@ -1,7 +1,7 @@
 ////
 This guide is maintained in the main Quarkus repository
 and pull requests should be submitted there:
-https://github.com/quarkusio/quarkus/tree/master/docs/src/main/asciidoc
+https://github.com/quarkusio/quarkus/tree/main/docs/src/main/asciidoc
 ////
 = Quarkus - Scripting with Quarkus
 include::./attributes.adoc[]
@@ -86,7 +86,7 @@ image::getting-started-architecture.png[alt=Architecture]
 
 First, we need a Java file. jbang lets you create an initial version using:
 
-[source,shell,subs=attributes+]
+[source,bash,subs=attributes+]
 ----
 jbang init scripting/quarkusapp.java
 cd scripting
@@ -118,7 +118,7 @@ Is illustrating how you add dependencies to this script. This is a feature of `j
 
 Go ahead and update this line to include the `quarkus-resteasy` dependency like so:
 
-[source,shell,subs=attributes+]
+[source,java,subs=attributes+]
 ----
 //DEPS io.quarkus:quarkus-resteasy:{quarkus-version}
 ----
@@ -337,7 +337,7 @@ The reason is that JAX-RS `@PathParam` relies on the `-parameters` compiler flag
 
 We fix that by adding the following comment instruction to the file:
 
-[source,shell,subs=attributes+]
+[source,java,subs=attributes+]
 ----
 //JAVAC_OPTIONS -parameters
 ----
@@ -353,7 +353,7 @@ hello quarkus
 == Debugging
 
 To debug the application you use `jbang --debug quarkusapp.java` and you can use your IDE to connect on port 4004; if you want to use the
-more traditonal Quarkus debug port you can use `jbang --debug=5005 quarkusapp.java`.
+more traditional Quarkus debug port you can use `jbang --debug=5005 quarkusapp.java`.
 
 Note: `jbang` debugging always suspends thus you need to connect the debugger to have the application run.
 
@@ -388,7 +388,7 @@ I.e. if you wanted to add the `smallrye-openapi` and `swagger-ui` extensions and
 //Q:CONFIG quarkus.swagger-ui.always-include=true
 ----
 
-Now during build the `quarkus.swagger-ui.always-include` will be generated into the resulting jar and `http://0.0.0.0:8080/swagger-ui` will be available when run.
+Now during build the `quarkus.swagger-ui.always-include` will be generated into the resulting jar and `http://0.0.0.0:8080/q/swagger-ui` will be available when run.
 
 == Running as a native application
 

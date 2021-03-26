@@ -5,6 +5,8 @@ import java.util.stream.Stream;
 
 import org.bson.conversions.Bson;
 
+import com.mongodb.ReadPreference;
+import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Collation;
 
@@ -15,8 +17,8 @@ import io.quarkus.panache.common.Page;
 public class PanacheQueryImpl<Entity> implements PanacheQuery<Entity> {
     private final CommonPanacheQueryImpl<Entity> delegate;
 
-    PanacheQueryImpl(MongoCollection<? extends Entity> collection, Bson mongoQuery, Bson sort) {
-        this.delegate = new CommonPanacheQueryImpl<>(collection, mongoQuery, sort);
+    PanacheQueryImpl(MongoCollection<? extends Entity> collection, ClientSession session, Bson mongoQuery, Bson sort) {
+        this.delegate = new CommonPanacheQueryImpl<>(collection, session, mongoQuery, sort);
     }
 
     private PanacheQueryImpl(CommonPanacheQueryImpl<Entity> delegate) {
@@ -92,6 +94,12 @@ public class PanacheQueryImpl<Entity> implements PanacheQuery<Entity> {
     @Override
     public PanacheQuery<Entity> withCollation(Collation collation) {
         delegate.withCollation(collation);
+        return this;
+    }
+
+    @Override
+    public PanacheQuery<Entity> withReadPreference(ReadPreference readPreference) {
+        delegate.withReadPreference(readPreference);
         return this;
     }
 

@@ -2,6 +2,9 @@ package io.quarkus.smallrye.graphql.deployment;
 
 import static io.quarkus.smallrye.graphql.deployment.AbstractGraphQLTest.MEDIATYPE_JSON;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.hamcrest.CoreMatchers;
 import org.jboss.logging.Logger;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
@@ -28,7 +31,7 @@ public class GraphQLTest extends AbstractGraphQLTest {
     static QuarkusUnitTest test = new QuarkusUnitTest()
             .setArchiveProducer(() -> ShrinkWrap.create(JavaArchive.class)
                     .addClasses(TestResource.class, TestPojo.class, TestRandom.class, TestGenericsPojo.class)
-                    .addAsResource(new StringAsset(getPropertyAsString()), "application.properties")
+                    .addAsResource(new StringAsset(getPropertyAsString(configuration())), "application.properties")
                     .addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml"));
 
     @Test
@@ -47,6 +50,7 @@ public class GraphQLTest extends AbstractGraphQLTest {
         Assertions.assertTrue(body.contains("generics: TestGenericsPojo_String"));
         Assertions.assertTrue(body.contains("type TestGenericsPojo_String {"));
         Assertions.assertTrue(body.contains("enum SomeEnum {"));
+        Assertions.assertTrue(body.contains("enum Number {"));
     }
 
     @Test
@@ -161,5 +165,11 @@ public class GraphQLTest extends AbstractGraphQLTest {
                 .statusCode(200)
                 .and()
                 .body(CoreMatchers.containsString("{\"data\":{\"context\":\"/context\"}}"));
+    }
+
+    private static Map<String, String> configuration() {
+        Map<String, String> m = new HashMap<>();
+        m.put("quarkus.smallrye-graphql.events.enabled", "true");
+        return m;
     }
 }

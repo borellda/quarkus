@@ -1,6 +1,5 @@
 package io.quarkus.devtools.codestarts;
 
-import io.quarkus.bootstrap.model.AppArtifactKey;
 import io.quarkus.devtools.messagewriter.MessageWriter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -9,21 +8,21 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class CodestartProjectInputBuilder {
-    Collection<AppArtifactKey> dependencies = new ArrayList<>();
+    Collection<String> dependencies = new ArrayList<>();
     CodestartsSelection selection = new CodestartsSelection();
     Map<String, Object> data = new HashMap<>();
     MessageWriter messageWriter = MessageWriter.info();
 
-    CodestartProjectInputBuilder() {
+    protected CodestartProjectInputBuilder() {
 
     }
 
-    public CodestartProjectInputBuilder addDependencies(Collection<AppArtifactKey> dependencies) {
+    public CodestartProjectInputBuilder addDependencies(Collection<String> dependencies) {
         this.dependencies.addAll(dependencies);
         return this;
     }
 
-    public CodestartProjectInputBuilder addDependency(AppArtifactKey dependency) {
+    public CodestartProjectInputBuilder addDependency(String dependency) {
         return this.addDependencies(Collections.singletonList(dependency));
     }
 
@@ -43,8 +42,14 @@ public class CodestartProjectInputBuilder {
     }
 
     public CodestartProjectInputBuilder putData(String key, Object value) {
-        this.data.put(key, value);
+        if (value != null) {
+            this.data.put(key, value);
+        }
         return this;
+    }
+
+    public CodestartProjectInputBuilder putData(DataKey dataKey, Object value) {
+        return this.putData(dataKey.key(), value);
     }
 
     public CodestartProjectInputBuilder messageWriter(MessageWriter messageWriter) {
@@ -54,5 +59,13 @@ public class CodestartProjectInputBuilder {
 
     public CodestartProjectInput build() {
         return new CodestartProjectInput(this);
+    }
+
+    public boolean containsData(DataKey dataKey) {
+        return this.containsData(dataKey.key());
+    }
+
+    public boolean containsData(String key) {
+        return this.data.containsKey(key);
     }
 }

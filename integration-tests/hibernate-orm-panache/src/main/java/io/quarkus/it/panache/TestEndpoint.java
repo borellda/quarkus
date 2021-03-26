@@ -1054,7 +1054,7 @@ public class TestEndpoint {
     public String testModel1() {
         Assertions.assertEquals(0, Person.count());
 
-        Person person = makeSavedPerson();
+        Person person = makeSavedPerson("");
         SelfDirtinessTracker trackingPerson = (SelfDirtinessTracker) person;
 
         String[] dirtyAttributes = trackingPerson.$$_hibernate_getDirtyAttributes();
@@ -1106,6 +1106,11 @@ public class TestEndpoint {
         Assertions.assertEquals(0, query.list().size());
 
         Assertions.assertEquals(1, Person.findAll().project(PersonName.class).count());
+
+        Person owner = makeSavedPerson();
+        DogDto dogDto = Dog.findAll().project(DogDto.class).firstResult();
+        Assertions.assertEquals("stef", dogDto.ownerName);
+        owner.delete();
 
         return "OK";
     }

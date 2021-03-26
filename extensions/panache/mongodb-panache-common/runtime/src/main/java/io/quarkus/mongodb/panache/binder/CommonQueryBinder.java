@@ -1,15 +1,14 @@
 package io.quarkus.mongodb.panache.binder;
 
-import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -38,26 +37,26 @@ final class CommonQueryBinder {
         if (Number.class.isAssignableFrom(value.getClass()) || value instanceof Boolean) {
             return value.toString();
         }
+        if (value.getClass().isEnum()) {
+            return "'" + ((Enum<?>) value).name() + "'";
+        }
         if (value instanceof Date) {
-            SimpleDateFormat dateFormat = new SimpleDateFormat(ISO_DATE_PATTERN);
-            dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
-            Date dateValue = (Date) value;
-            return "ISODate('" + dateFormat.format(dateValue) + "')";
+            ZonedDateTime zonedDateTime = ((Date) value).toInstant().atZone(ZoneOffset.UTC);
+            return "{\"$date\": \"" + ISO_DATE_FORMATTER.format(zonedDateTime) + "\"} ";
         }
         if (value instanceof LocalDate) {
-            LocalDate dateValue = (LocalDate) value;
-            return "ISODate('" + DateTimeFormatter.ISO_LOCAL_DATE.format(dateValue) + "')";
+            ZonedDateTime zonedDateTime = ((LocalDate) value).atStartOfDay(ZoneOffset.UTC);
+            return "{\"$date\": \"" + ISO_DATE_FORMATTER.format(zonedDateTime) + "\"} ";
         }
         if (value instanceof LocalDateTime) {
-            LocalDateTime dateValue = (LocalDateTime) value;
-            return "ISODate('" + ISO_DATE_FORMATTER.format(dateValue.atZone(ZoneOffset.UTC)) + "')";
+            ZonedDateTime zonedDateTime = ((LocalDateTime) value).atZone(ZoneOffset.UTC);
+            return "{\"$date\": \"" + ISO_DATE_FORMATTER.format(zonedDateTime) + "\"} ";
         }
         if (value instanceof Instant) {
-            Instant dateValue = (Instant) value;
-            return "ISODate('" + ISO_DATE_FORMATTER.format(dateValue.atZone(ZoneOffset.UTC)) + "')";
+            ZonedDateTime zonedDateTime = ((Instant) value).atZone(ZoneOffset.UTC);
+            return "{\"$date\": \"" + ISO_DATE_FORMATTER.format(zonedDateTime) + "\"} ";
         }
         if (value instanceof UUID) {
-            UUID uuidValue = (UUID) value;
             return "UUID('" + value.toString() + "')";
         }
         if (value instanceof ObjectId) {

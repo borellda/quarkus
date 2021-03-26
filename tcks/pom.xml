@@ -23,12 +23,14 @@
         <module>microprofile-metrics</module>
         <module>microprofile-reactive-messaging</module>
         <module>microprofile-rest-client</module>
+        <module>microprofile-rest-client-reactive</module>
         <module>microprofile-openapi</module>
         <module>microprofile-opentracing</module>
     </modules>
 
     <properties>
         <maven.deploy.skip>true</maven.deploy.skip>
+        <enforce-test-deps-scope.skip>true</enforce-test-deps-scope.skip>
     </properties>
 
     <build>

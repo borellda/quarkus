@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>quarkus-container-image-openshift</artifactId>
-    <name>Quarkus - Container - Image - Openshift</name>
+    <name>Quarkus - Container Image - OpenShift</name>
     <description>Build container images of your application using OpenShift</description>
 
     <dependencies>
@@ -19,6 +19,10 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-kubernetes-client-internal</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-container-image</artifactId>
         </dependency>
     </dependencies>
 

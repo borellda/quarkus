@@ -11,12 +11,16 @@
     </parent>
 
     <artifactId>quarkus-container-image-openshift-deployment</artifactId>
-    <name>Quarkus - Container - Image - Openshift - Deployment</name>
+    <name>Quarkus - Container Image - OpenShift - Deployment</name>
 
     <dependencies>
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-kubernetes-client-deployment-internal</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-vertx-http-dev-console-spi</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>

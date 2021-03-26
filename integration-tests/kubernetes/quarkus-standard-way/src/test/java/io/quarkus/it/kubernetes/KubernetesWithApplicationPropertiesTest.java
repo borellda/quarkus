@@ -17,9 +17,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import io.fabric8.kubernetes.api.model.EnvVarSourceBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Service;
-import io.fabric8.kubernetes.api.model.ServiceAccount;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
-import io.fabric8.kubernetes.api.model.extensions.Ingress;
+import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.quarkus.test.ProdBuildResults;
 import io.quarkus.test.ProdModeTestResults;
 import io.quarkus.test.QuarkusProdModeTest;
@@ -45,7 +44,7 @@ public class KubernetesWithApplicationPropertiesTest {
         List<HasMetadata> kubernetesList = DeserializationUtil
                 .deserializeAsList(kubernetesDir.resolve("kubernetes.yml"));
 
-        assertThat(kubernetesList).hasSize(4);
+        assertThat(kubernetesList).hasSize(3);
 
         assertThat(kubernetesList).filteredOn(i -> "Deployment".equals(i.getKind())).singleElement().satisfies(i -> {
             assertThat(i).isInstanceOfSatisfying(Deployment.class, d -> {
@@ -95,14 +94,12 @@ public class KubernetesWithApplicationPropertiesTest {
                     assertEquals("NodePort", spec.getType());
                     assertThat(spec.getSelector()).containsOnly(entry("app.kubernetes.io/name", "test-it"));
                     assertThat(spec.getPorts()).hasSize(1).singleElement().satisfies(p -> {
-                        assertThat(p.getPort()).isEqualTo(9090);
+                        assertThat(p.getPort()).isEqualTo(80);
+                        assertThat(p.getTargetPort().getIntVal()).isEqualTo(9090);
                     });
                 });
             });
         });
-
-        assertThat(kubernetesList).filteredOn(i -> "ServiceAccount".equals(i.getKind())).hasSize(1)
-                .hasOnlyElementsOfType(ServiceAccount.class);
 
         assertThat(kubernetesList).filteredOn(i -> "Ingress".equals(i.getKind())).singleElement().satisfies(i -> {
             assertThat(i).isInstanceOfSatisfying(Ingress.class, in -> {

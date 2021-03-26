@@ -1,5 +1,6 @@
 package io.quarkus.redis.client.runtime;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -8,6 +9,7 @@ import javax.annotation.PreDestroy;
 
 import io.quarkus.redis.client.RedisClient;
 import io.quarkus.redis.client.reactive.ReactiveRedisClient;
+import io.quarkus.redis.client.runtime.RedisConfig.RedisConfiguration;
 import io.vertx.core.Vertx;
 import io.vertx.redis.client.Redis;
 import io.vertx.redis.client.RedisAPI;
@@ -17,10 +19,10 @@ class RedisAPIProducer {
     private static Map<String, RedisAPIContainer> REDIS_APIS = new ConcurrentHashMap<>();
 
     private final Vertx vertx;
-    private final RedisConfig redisRuntimeConfig;
+    private final RedisConfig redisConfig;
 
     public RedisAPIProducer(RedisConfig redisConfig, Vertx vertx) {
-        this.redisRuntimeConfig = redisConfig;
+        this.redisConfig = redisConfig;
         this.vertx = vertx;
     }
 
@@ -28,12 +30,13 @@ class RedisAPIProducer {
         return REDIS_APIS.computeIfAbsent(name, new Function<String, RedisAPIContainer>() {
             @Override
             public RedisAPIContainer apply(String s) {
-                long timeout = 10;
-                RedisConfig.RedisConfiguration redisConfig = RedisClientUtil.getConfiguration(redisRuntimeConfig, name);
-                if (redisConfig.timeout.isPresent()) {
-                    timeout = redisConfig.timeout.get().getSeconds();
+                Duration timeout = Duration.ofSeconds(10);
+                RedisConfiguration redisConfiguration = RedisClientUtil.getConfiguration(RedisAPIProducer.this.redisConfig,
+                        name);
+                if (redisConfiguration.timeout.isPresent()) {
+                    timeout = redisConfiguration.timeout.get();
                 }
-                RedisOptions options = RedisClientUtil.buildOptions(redisConfig, name);
+                RedisOptions options = RedisClientUtil.buildOptions(redisConfiguration);
                 Redis redis = Redis.createClient(vertx, options);
                 RedisAPI redisAPI = RedisAPI.api(redis);
                 MutinyRedis mutinyRedis = new MutinyRedis(redis);
@@ -50,6 +53,8 @@ class RedisAPIProducer {
         for (RedisAPIContainer container : REDIS_APIS.values()) {
             container.close();
         }
+
+        REDIS_APIS.clear();
     }
 
 }

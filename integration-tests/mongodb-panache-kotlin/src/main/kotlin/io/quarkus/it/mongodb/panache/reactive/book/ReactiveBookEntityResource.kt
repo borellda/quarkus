@@ -25,8 +25,6 @@ import javax.ws.rs.core.MediaType
 import javax.ws.rs.core.Response
 
 @Path("/reactive/books/entity")
-@Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 class ReactiveBookEntityResource {
     @PostConstruct
     fun init() {
@@ -82,7 +80,7 @@ class ReactiveBookEntityResource {
 
     @GET
     @Path("/{id}")
-    fun getBook(@PathParam("id") id: String?): Uni<ReactiveBookEntity> = ReactiveBookEntity.findById(ObjectId(id))
+    fun getBook(@PathParam("id") id: String?): Uni<ReactiveBookEntity?> = ReactiveBookEntity.findById(ObjectId(id))
 
     @GET
     @Path("/search/{author}")

@@ -4,7 +4,6 @@ import static io.restassured.RestAssured.given;
 
 import org.junit.jupiter.api.Test;
 
-import io.quarkus.hibernate.orm.rest.data.panache.deployment.entity.CollectionsController;
 import io.quarkus.test.QuarkusDevModeTest;
 
 public abstract class AbstractHotReloadTest {
@@ -13,8 +12,8 @@ public abstract class AbstractHotReloadTest {
 
     @Test
     public void shouldModifyPathAndDisableHal() {
-        getTestArchive().modifySourceFile(CollectionsController.class,
-                s -> s.replace("@ResourceProperties(hal = true, paged = false)", "@ResourceProperties(path = \"col\")"));
+        getTestArchive().modifySourceFile(getResourceClass(),
+                s -> s.replaceAll(".*@ResourceProperties.*", "@ResourceProperties(path = \"col\")"));
         given().accept("application/json")
                 .when().get("/col")
                 .then().statusCode(200);
@@ -22,4 +21,6 @@ public abstract class AbstractHotReloadTest {
                 .when().get("/col")
                 .then().statusCode(406);
     }
+
+    protected abstract Class<?> getResourceClass();
 }

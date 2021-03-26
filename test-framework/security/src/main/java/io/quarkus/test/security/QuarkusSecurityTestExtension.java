@@ -3,6 +3,7 @@ package io.quarkus.test.security;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.stream.Collectors;
 
 import javax.enterprise.inject.spi.CDI;
 
@@ -28,8 +29,11 @@ public class QuarkusSecurityTestExtension implements QuarkusTestBeforeEachCallba
             Class<?> original = cl.loadClass(context.getTestMethod().getDeclaringClass().getName());
             Method method = original.getDeclaredMethod(context.getTestMethod().getName(),
                     Arrays.stream(context.getTestMethod().getParameterTypes()).map(s -> {
+                        if (s.isPrimitive()) {
+                            return s;
+                        }
                         try {
-                            return cl.loadClass(s.getName());
+                            return Class.forName(s.getName(), false, cl);
                         } catch (ClassNotFoundException e) {
                             throw new RuntimeException(e);
                         }
@@ -51,10 +55,16 @@ public class QuarkusSecurityTestExtension implements QuarkusTestBeforeEachCallba
                     throw new RuntimeException("Cannot specify roles without a username in @TestSecurity");
                 }
             } else {
-                QuarkusSecurityIdentity user = QuarkusSecurityIdentity.builder()
+                QuarkusSecurityIdentity.Builder user = QuarkusSecurityIdentity.builder()
                         .setPrincipal(new QuarkusPrincipal(testSecurity.user()))
-                        .addRoles(new HashSet<>(Arrays.asList(testSecurity.roles()))).build();
-                CDI.current().select(TestIdentityAssociation.class).get().setTestIdentity(user);
+                        .addRoles(new HashSet<>(Arrays.asList(testSecurity.roles())));
+
+                if (testSecurity.attributes() != null) {
+                    user.addAttributes(Arrays.stream(testSecurity.attributes())
+                            .collect(Collectors.toMap(s -> s.key(), s -> s.value())));
+                }
+
+                CDI.current().select(TestIdentityAssociation.class).get().setTestIdentity(user.build());
             }
         } catch (Exception e) {
             throw new RuntimeException("Unable to setup @TestSecurity", e);

@@ -8,7 +8,6 @@
         <artifactId>quarkus-integration-tests-parent</artifactId>
         <groupId>io.quarkus</groupId>
         <version>999-SNAPSHOT</version>
-        <relativePath>../</relativePath>
     </parent>
 
     <artifactId>quarkus-integration-test-vault-agroal</artifactId>
@@ -73,7 +72,7 @@
             <id>test-vault</id>
             <activation>
                 <property>
-                    <name>test-vault</name>
+                    <name>test-containers</name>
                 </property>
             </activation>
             <build>
@@ -88,7 +87,6 @@
                                 </goals>
                                 <configuration>
                                     <skip>false</skip>
-                                    <trimStackTrace>false</trimStackTrace>
                                 </configuration>
                             </execution>
                         </executions>

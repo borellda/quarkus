@@ -1,5 +1,7 @@
 package io.quarkus.hibernate.reactive.panache;
 
+import static io.quarkus.hibernate.reactive.panache.runtime.JpaOperations.INSTANCE;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -10,7 +12,6 @@ import javax.persistence.Transient;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import io.quarkus.hibernate.reactive.panache.runtime.JpaOperations;
 import io.quarkus.panache.common.Parameters;
 import io.quarkus.panache.common.Sort;
 import io.quarkus.panache.common.impl.GenerateBridge;
@@ -43,7 +44,7 @@ public abstract class PanacheEntityBase {
      * @see #persist(Object, Object...)
      */
     public Uni<Void> persist() {
-        return JpaOperations.persist(this);
+        return INSTANCE.persist(this);
     }
 
     /**
@@ -58,8 +59,8 @@ public abstract class PanacheEntityBase {
      * @see #persist(Object, Object...)
      */
     public Uni<Void> persistAndFlush() {
-        return JpaOperations.persist(this)
-                .flatMap(v -> JpaOperations.flush())
+        return INSTANCE.persist(this)
+                .flatMap(v -> INSTANCE.flush())
                 .map(v -> null);
     }
 
@@ -75,7 +76,7 @@ public abstract class PanacheEntityBase {
      * @see #deleteAll()
      */
     public Uni<Void> delete() {
-        return JpaOperations.delete(this);
+        return INSTANCE.delete(this);
     }
 
     /**
@@ -89,7 +90,7 @@ public abstract class PanacheEntityBase {
     // @JsonIgnore is here to avoid serialization of this property with jackson
     @JsonIgnore
     public boolean isPersistent() {
-        return JpaOperations.isPersistent(this);
+        return INSTANCE.isPersistent(this);
     }
 
     /**
@@ -98,7 +99,7 @@ public abstract class PanacheEntityBase {
      * @return
      */
     public Uni<Void> flush() {
-        return JpaOperations.flush();
+        return INSTANCE.flush();
     }
 
     // Queries
@@ -111,7 +112,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<T> findById(Object id) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -123,7 +124,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<T> findById(Object id, LockModeType lockModeType) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -140,7 +141,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> PanacheQuery<T> find(String query, Object... params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -158,7 +159,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> PanacheQuery<T> find(String query, Sort sort, Object... params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -175,7 +176,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> PanacheQuery<T> find(String query, Map<String, Object> params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -193,7 +194,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> PanacheQuery<T> find(String query, Sort sort, Map<String, Object> params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -210,7 +211,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> PanacheQuery<T> find(String query, Parameters params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -228,7 +229,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> PanacheQuery<T> find(String query, Sort sort, Parameters params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -241,7 +242,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> PanacheQuery<T> findAll() {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -255,7 +256,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> PanacheQuery<T> findAll(Sort sort) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -273,7 +274,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<List<T>> list(String query, Object... params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -292,7 +293,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<List<T>> list(String query, Sort sort, Object... params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -310,7 +311,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<List<T>> list(String query, Map<String, Object> params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -329,7 +330,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<List<T>> list(String query, Sort sort, Map<String, Object> params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -347,7 +348,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<List<T>> list(String query, Parameters params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -366,7 +367,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<List<T>> list(String query, Sort sort, Parameters params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -380,7 +381,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<List<T>> listAll() {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -395,7 +396,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Uni<List<T>> listAll(Sort sort) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -415,7 +416,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Multi<T> stream(String query, Object... params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -436,7 +437,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Multi<T> stream(String query, Sort sort, Object... params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -456,7 +457,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Multi<T> stream(String query, Map<String, Object> params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -477,7 +478,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Multi<T> stream(String query, Sort sort, Map<String, Object> params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -497,7 +498,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Multi<T> stream(String query, Parameters params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -518,7 +519,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Multi<T> stream(String query, Sort sort, Parameters params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -534,7 +535,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Multi<T> streamAll() {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -551,7 +552,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static <T extends PanacheEntityBase> Multi<T> streamAll(Sort sort) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -564,7 +565,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Long> count() {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -579,7 +580,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Long> count(String query, Object... params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -594,7 +595,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Long> count(String query, Map<String, Object> params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -609,12 +610,15 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Long> count(String query, Parameters params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
      * Delete all entities of this type from the database.
      *
+     * WARNING: the default implementation of this method uses a bulk delete query and ignores
+     * cascading rules from the JPA model.
+     * 
      * @return the number of entities deleted.
      * @see #delete(String, Object...)
      * @see #delete(String, Map)
@@ -622,7 +626,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Long> deleteAll() {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -633,12 +637,15 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Boolean> deleteById(Object id) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
      * Delete all entities of this type matching the given query, with optional indexed parameters.
      *
+     * WARNING: the default implementation of this method uses a bulk delete query and ignores
+     * cascading rules from the JPA model.
+     * 
      * @param query a {@link io.quarkus.hibernate.reactive.panache query string}
      * @param params optional sequence of indexed parameters
      * @return the number of entities deleted.
@@ -648,12 +655,15 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Long> delete(String query, Object... params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
      * Delete all entities of this type matching the given query, with named parameters.
      *
+     * WARNING: the default implementation of this method uses a bulk delete query and ignores
+     * cascading rules from the JPA model.
+     * 
      * @param query a {@link io.quarkus.hibernate.reactive.panache query string}
      * @param params {@link Map} of named parameters
      * @return the number of entities deleted.
@@ -663,12 +673,15 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Long> delete(String query, Map<String, Object> params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
      * Delete all entities of this type matching the given query, with named parameters.
      *
+     * WARNING: the default implementation of this method uses a bulk delete query and ignores
+     * cascading rules from the JPA model.
+     * 
      * @param query a {@link io.quarkus.hibernate.reactive.panache query string}
      * @param params {@link Parameters} of named parameters
      * @return the number of entities deleted.
@@ -678,7 +691,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Long> delete(String query, Parameters params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -691,7 +704,7 @@ public abstract class PanacheEntityBase {
      * @see #persist(Object,Object...)
      */
     public static Uni<Void> persist(Iterable<?> entities) {
-        return JpaOperations.persist(entities);
+        return INSTANCE.persist(entities);
     }
 
     /**
@@ -704,7 +717,7 @@ public abstract class PanacheEntityBase {
      * @see #persist(Object,Object...)
      */
     public static Uni<Void> persist(Stream<?> entities) {
-        return JpaOperations.persist(entities);
+        return INSTANCE.persist(entities);
     }
 
     /**
@@ -717,7 +730,7 @@ public abstract class PanacheEntityBase {
      * @see #persist(Iterable)
      */
     public static Uni<Void> persist(Object firstEntity, Object... entities) {
-        return JpaOperations.persist(firstEntity, entities);
+        return INSTANCE.persist(firstEntity, entities);
     }
 
     /**
@@ -731,7 +744,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Integer> update(String query, Object... params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -746,7 +759,7 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Integer> update(String query, Map<String, Object> params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 
     /**
@@ -760,6 +773,6 @@ public abstract class PanacheEntityBase {
      */
     @GenerateBridge
     public static Uni<Integer> update(String query, Parameters params) {
-        throw JpaOperations.implementationInjectionMissing();
+        throw INSTANCE.implementationInjectionMissing();
     }
 }

@@ -7,6 +7,7 @@ import java.util.Set;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
+import com.mongodb.ReadPreference;
 import com.mongodb.client.model.Collation;
 
 import io.quarkus.mongodb.FindOptions;
@@ -143,12 +144,17 @@ public class CommonReactivePanacheQueryImpl<Entity> {
         return (CommonReactivePanacheQueryImpl<T>) this;
     }
 
+    public <T extends Entity> CommonReactivePanacheQueryImpl<T> withReadPreference(ReadPreference readPreference) {
+        this.collection = this.collection.withReadPreference(readPreference);
+        return (CommonReactivePanacheQueryImpl<T>) this;
+    }
+
     // Results
 
     @SuppressWarnings("unchecked")
     public Uni<Long> count() {
         if (count == null) {
-            count = collection.countDocuments(mongoQuery);
+            count = mongoQuery == null ? collection.countDocuments() : collection.countDocuments(mongoQuery);
         }
         return count;
     }

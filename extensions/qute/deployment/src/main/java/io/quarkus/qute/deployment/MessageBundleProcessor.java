@@ -151,7 +151,7 @@ public class MessageBundleProcessor {
                         if (defaultLocale.equals(locale) || previous != null) {
                             throw new MessageBundleException(String.format(
                                     "A localized message bundle interface [%s] already exists for locale %s: [%s]",
-                                    previous != null ? previous : bundleClass, localizedInterface));
+                                    previous != null ? previous : bundleClass, locale, localizedInterface));
                         }
                     }
 
@@ -290,8 +290,7 @@ public class MessageBundleProcessor {
                                 name + " is not a parameter of the message bundle method "
                                         + messageBundleMethod.getMethod().declaringClass().name() + "#"
                                         + messageBundleMethod.getMethod().name() + "()",
-                                expression.getOrigin().getLine(),
-                                expression.getOrigin().getTemplateGeneratedId()));
+                                expression.getOrigin()));
                     } else {
                         usedParamNames.add(name);
                     }
@@ -343,88 +342,93 @@ public class MessageBundleProcessor {
             bundlesMap.put(messageBundle.getName(), messageBundle.getDefaultBundleInterface());
         }
 
-        for (Entry<String, Map<String, MethodInfo>> entry : bundleMethodsMap.entrySet()) {
+        for (Entry<String, Map<String, MethodInfo>> bundleEntry : bundleMethodsMap.entrySet()) {
 
-            Set<Expression> expressions = QuteProcessor.collectNamespaceExpressions(analysis, entry.getKey());
-            Map<String, MethodInfo> methods = entry.getValue();
-            ClassInfo defaultBundleInterface = bundlesMap.get(entry.getKey());
+            Map<TemplateAnalysis, Set<Expression>> expressions = QuteProcessor.collectNamespaceExpressions(analysis,
+                    bundleEntry.getKey());
+            Map<String, MethodInfo> methods = bundleEntry.getValue();
+            ClassInfo defaultBundleInterface = bundlesMap.get(bundleEntry.getKey());
 
             if (!expressions.isEmpty()) {
 
-                // Map implicit class -> true if methods were used
-                Map<ClassInfo, Boolean> implicitClassToMethodUsed = new HashMap<>();
+                // Map implicit class -> set of used members
+                Map<DotName, Set<String>> implicitClassToMembersUsed = new HashMap<>();
 
-                for (Expression expression : expressions) {
-                    // msg:hello_world(foo.name)
-                    Part methodPart = expression.getParts().get(0);
-                    if (methodPart.getName().equals(MESSAGE)) {
-                        // Skip validation - dynamic key, e.g. msg:message(myKey,param1,param2)
-                        continue;
-                    }
-                    MethodInfo method = methods.get(methodPart.getName());
+                for (Entry<TemplateAnalysis, Set<Expression>> exprEntry : expressions.entrySet()) {
 
-                    if (method == null) {
-                        if (!methodPart.isVirtualMethod() || methodPart.asVirtualMethod().getParameters().isEmpty()) {
-                            // The method template may contain no expressions
-                            method = defaultBundleInterface.method(methodPart.getName());
+                    Map<Integer, Match> generatedIdsToMatches = new HashMap<>();
+
+                    for (Expression expression : exprEntry.getValue()) {
+                        // msg:hello_world(foo.name)
+                        Part methodPart = expression.getParts().get(0);
+                        if (methodPart.getName().equals(MESSAGE)) {
+                            // Skip validation - dynamic key, e.g. msg:message(myKey,param1,param2)
+                            continue;
                         }
+                        MethodInfo method = methods.get(methodPart.getName());
+
                         if (method == null) {
-                            // User is referencing a non-existent message
-                            incorrectExpressions.produce(new IncorrectExpressionBuildItem(expression.toOriginalString(),
-                                    "Message bundle [name=" + entry.getKey() + ", interface="
-                                            + defaultBundleInterface
-                                            + "] does not define a method for key: " + methodPart.getName(),
-                                    expression.getOrigin().getLine(),
-                                    expression.getOrigin().getTemplateGeneratedId()));
-                            continue;
-                        }
-                    }
-
-                    if (methodPart.isVirtualMethod()) {
-                        // For virtual method validate the number of params first  
-                        List<Expression> params = methodPart.asVirtualMethod().getParameters();
-                        List<Type> methodParams = method.parameters();
-
-                        if (methodParams.size() != params.size()) {
-                            incorrectExpressions.produce(new IncorrectExpressionBuildItem(expression.toOriginalString(),
-                                    "Message bundle [name=" + entry.getKey() + ", interface="
-                                            + defaultBundleInterface
-                                            + "] - wrong number of parameters for method: " + method.toString(),
-                                    expression.getOrigin().getLine(),
-                                    expression.getOrigin().getTemplateGeneratedId()));
-                            continue;
-                        }
-
-                        // Then attempt to validate the parameter types
-                        int idx = 0;
-                        for (Expression param : params) {
-                            if (param.hasTypeInfo()) {
-                                Map<String, Match> results = new HashMap<>();
-                                QuteProcessor.validateNestedExpressions(defaultBundleInterface, results,
-                                        templateExtensionMethods, excludes,
-                                        incorrectExpressions, expression, index, implicitClassToMethodUsed,
-                                        templateIdToPathFun);
-                                Match match = results.get(param.toOriginalString());
-                                if (match != null && !Types.isAssignableFrom(match.type,
-                                        methodParams.get(idx), index)) {
-                                    incorrectExpressions.produce(new IncorrectExpressionBuildItem(expression.toOriginalString(),
-                                            "Message bundle method " + method.declaringClass().name() + "#" +
-                                                    method.name() + "() parameter [" + method.parameterName(idx)
-                                                    + "] does not match the type: " + match.type,
-                                            expression.getOrigin().getLine(),
-                                            expression.getOrigin().getTemplateGeneratedId()));
-                                }
+                            if (!methodPart.isVirtualMethod() || methodPart.asVirtualMethod().getParameters().isEmpty()) {
+                                // The method template may contain no expressions
+                                method = defaultBundleInterface.method(methodPart.getName());
                             }
-                            idx++;
+                            if (method == null) {
+                                // User is referencing a non-existent message
+                                incorrectExpressions.produce(new IncorrectExpressionBuildItem(expression.toOriginalString(),
+                                        "Message bundle [name=" + bundleEntry.getKey() + ", interface="
+                                                + defaultBundleInterface
+                                                + "] does not define a method for key: " + methodPart.getName(),
+                                        expression.getOrigin()));
+                                continue;
+                            }
+                        }
+
+                        if (methodPart.isVirtualMethod()) {
+                            // For virtual method validate the number of params first  
+                            List<Expression> params = methodPart.asVirtualMethod().getParameters();
+                            List<Type> methodParams = method.parameters();
+
+                            if (methodParams.size() != params.size()) {
+                                incorrectExpressions.produce(new IncorrectExpressionBuildItem(expression.toOriginalString(),
+                                        "Message bundle [name=" + bundleEntry.getKey() + ", interface="
+                                                + defaultBundleInterface
+                                                + "] - wrong number of parameters for method: " + method.toString(),
+                                        expression.getOrigin()));
+                                continue;
+                            }
+
+                            // Then attempt to validate the parameter types
+                            int idx = 0;
+                            for (Expression param : params) {
+                                if (param.hasTypeInfo()) {
+                                    Map<String, Match> results = new HashMap<>();
+                                    QuteProcessor.validateNestedExpressions(exprEntry.getKey(), defaultBundleInterface,
+                                            results, templateExtensionMethods, excludes,
+                                            incorrectExpressions, expression, index, implicitClassToMembersUsed,
+                                            templateIdToPathFun, generatedIdsToMatches);
+                                    Match match = results.get(param.toOriginalString());
+                                    if (match != null && !Types.isAssignableFrom(match.type(),
+                                            methodParams.get(idx), index)) {
+                                        incorrectExpressions
+                                                .produce(new IncorrectExpressionBuildItem(expression.toOriginalString(),
+                                                        "Message bundle method " + method.declaringClass().name() + "#" +
+                                                                method.name() + "() parameter [" + method.parameterName(idx)
+                                                                + "] does not match the type: " + match.type(),
+                                                        expression.getOrigin()));
+                                    }
+                                }
+                                idx++;
+                            }
                         }
                     }
                 }
 
-                for (Entry<ClassInfo, Boolean> implicit : implicitClassToMethodUsed.entrySet()) {
-                    implicitClasses.produce(implicit.getValue()
-                            ? new ImplicitValueResolverBuildItem(implicit.getKey(),
-                                    new TemplateDataBuilder().properties(false).build())
-                            : new ImplicitValueResolverBuildItem(implicit.getKey()));
+                for (Entry<DotName, Set<String>> e : implicitClassToMembersUsed.entrySet()) {
+                    ClassInfo clazz = index.getClassByName(e.getKey());
+                    if (clazz != null) {
+                        implicitClasses.produce(new ImplicitValueResolverBuildItem(clazz,
+                                new TemplateDataBuilder().addIgnore(QuteProcessor.buildIgnorePattern(e.getValue())).build()));
+                    }
                 }
             }
         }
@@ -527,8 +531,8 @@ public class MessageBundleProcessor {
             baseName = baseName + "_" + locale;
         }
 
-        String targetPackage = DotNames.packageName(bundleInterface.name());
-        String generatedName = targetPackage.replace('.', '/') + "/" + baseName + SUFFIX;
+        String targetPackage = DotNames.internalPackageNameWithTrailingSlash(bundleInterface.name());
+        String generatedName = targetPackage + baseName + SUFFIX;
 
         // MyMessages_Bundle implements MyMessages, Resolver
         Builder builder = ClassCreator.builder().classOutput(classOutput).className(generatedName)

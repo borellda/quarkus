@@ -12,8 +12,10 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import org.gradle.api.GradleException;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.plugins.Convention;
 import org.gradle.api.plugins.JavaPluginConvention;
+import org.gradle.api.tasks.CompileClasspath;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskAction;
 
@@ -27,6 +29,11 @@ import io.quarkus.deployment.CodeGenerator;
 
 public class QuarkusGenerateCode extends QuarkusTask {
 
+    public static final String QUARKUS_GENERATED_SOURCES = "quarkus-generated-sources";
+    public static final String QUARKUS_TEST_GENERATED_SOURCES = "quarkus-test-generated-sources";
+    // TODO dynamically load generation provider, or make them write code directly in quarkus-generated-sources
+    public static final String[] CODE_GENERATION_PROVIDER = new String[] { "grpc" };
+
     public static final String INIT_AND_RUN = "initAndRun";
     private Set<Path> sourcesDirectories;
     private Consumer<Path> sourceRegistrar;
@@ -34,6 +41,16 @@ public class QuarkusGenerateCode extends QuarkusTask {
 
     public QuarkusGenerateCode() {
         super("Performs Quarkus pre-build preparations, such as sources generation");
+    }
+
+    /**
+     * Create a dependency on classpath resolution. This makes sure included build are build this task runs.
+     *
+     * @return resolved compile classpath
+     */
+    @CompileClasspath
+    public FileCollection getClasspath() {
+        return QuarkusGradleUtils.getSourceSet(getProject(), SourceSet.MAIN_SOURCE_SET_NAME).getCompileClasspath();
     }
 
     @TaskAction
@@ -61,9 +78,8 @@ public class QuarkusGenerateCode extends QuarkusTask {
             final Convention convention = getProject().getConvention();
             JavaPluginConvention javaConvention = convention.findPlugin(JavaPluginConvention.class);
             if (javaConvention != null) {
-                String generateSourcesDir = test ? "quarkus-test-generated-sources" : "quarkus-generated-sources";
-                final SourceSet generatedSources = javaConvention.getSourceSets().create(generateSourcesDir);
-                generatedSources.getOutput().dir(generateSourcesDir);
+                final String generateSourcesDir = test ? QUARKUS_TEST_GENERATED_SOURCES : QUARKUS_GENERATED_SOURCES;
+                final SourceSet generatedSources = javaConvention.getSourceSets().findByName(generateSourcesDir);
                 List<Path> paths = new ArrayList<>();
                 generatedSources.getOutput()
                         .filter(f -> f.getName().equals(generateSourcesDir))
@@ -89,7 +105,8 @@ public class QuarkusGenerateCode extends QuarkusTask {
                         paths.iterator().next(),
                         buildDir,
                         sourceRegistrar,
-                        appCreationContext.getAppModel());
+                        appCreationContext.getAppModel(),
+                        realProperties);
 
             }
         } catch (BootstrapException | IllegalAccessException | InvocationTargetException | ClassNotFoundException e) {

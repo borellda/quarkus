@@ -47,7 +47,7 @@ public class KotlinCreateMavenProjectIT extends QuarkusPlatformAwareMojoTestBase
         String config = Files
                 .asCharSource(new File(testDir, "src/main/resources/application.properties"), Charsets.UTF_8)
                 .read();
-        assertThat(config).contains("key = value");
+        assertThat(config).isEmpty();
 
         assertThat(new File(testDir, "src/main/docker/Dockerfile.native")).isFile();
         assertThat(new File(testDir, "src/main/docker/Dockerfile.jvm")).isFile();
@@ -83,7 +83,6 @@ public class KotlinCreateMavenProjectIT extends QuarkusPlatformAwareMojoTestBase
         request.setGoals(Collections.singletonList(
                 getMavenPluginGroupId() + ":" + getMavenPluginArtifactId() + ":" + getMavenPluginVersion() + ":create"));
         request.setProperties(params);
-        getEnv().forEach(request::addShellEnvironment);
         File log = new File(testDir, "build-create-" + testDir.getName() + ".log");
         PrintStreamLogger logger = new PrintStreamLogger(new PrintStream(new FileOutputStream(log), false, "UTF-8"),
                 InvokerLogger.DEBUG);

@@ -1,5 +1,6 @@
 package io.quarkus.mongodb.panache.kotlin.runtime
 
+import com.mongodb.client.ClientSession
 import com.mongodb.client.MongoCollection
 import io.quarkus.mongodb.panache.PanacheUpdate
 import io.quarkus.mongodb.panache.kotlin.PanacheQuery
@@ -12,6 +13,14 @@ import java.util.stream.Stream
  * Defines kotlin specific implementations of methods needed by [MongoOperations].
  */
 class KotlinMongoOperations : MongoOperations<PanacheQuery<*>, PanacheUpdate>() {
+    /**
+     * Defines internal implementation details for use by quarkus.  Use of these members is highly discouraged as the
+     * implementation may change without warning.
+     */
+    companion object {
+        @JvmField
+        val INSTANCE = KotlinMongoOperations()
+    }
 
     /**
      * Creates the query implementation
@@ -22,8 +31,8 @@ class KotlinMongoOperations : MongoOperations<PanacheQuery<*>, PanacheUpdate>() 
      * 
      * @return the new query implementation
      */
-    override fun createQuery(collection: MongoCollection<*>, query: Document?, sortDoc: Document?) =
-            PanacheQueryImpl(collection, query, sortDoc)
+    override fun createQuery(collection: MongoCollection<*>, session: ClientSession?, query: Document?, sortDoc: Document?) =
+            PanacheQueryImpl(collection, session, query, sortDoc)
 
     /**
      * Creates the update implementation

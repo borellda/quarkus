@@ -45,7 +45,7 @@ While not absolute, here is some advice:
 * Make sure the commit comments are meaningful.
 * As a new committer, you can start by giving your approval and not merging and see how things evolve.
   This should give you some hints of important things to check in the future.
-* Only merge pull requests that target master.
+* Only merge pull requests that target main.
   **Dealing with old branches is a separate process.**
 * If you are sure a PR should go in and is just waiting for CI,
   just use the `triage/waiting-for-ci` label.
@@ -54,10 +54,7 @@ While not absolute, here is some advice:
   you should affect this milestone to it so that we can be sure it stays on the radar.
 * If you think a pull request is worth mentioning in the release notes and/or
   the announcement blog post, add the `release/noteworthy-feature` label.
-* When merging a pull request, please affect the corresponding milestone to the pull request
-  and the resolved issues.
-  The current master branch is marked with ` - master` on GitHub.
-  Do NOT affect a PR to an old branch, see the <<backporting-process,backporting process>> for more details.
+* Do NOT affect a PR to an old branch, see the <<backporting-process,backporting process>> for more details.
 
 Obviously, each situation is different so use your own judgement,
 and if in doubt, just ask for advice, the other committers are here to help.
@@ -93,13 +90,13 @@ In short, posting a large PR the day before the release won't work.
 
 Quarkus depends on a lot of third party dependencies that we try to keep up to date.
 
-We partially rely on Dependabot for https://github.com/quarkusio/quarkus/blob/master/.github/dependabot.yml[a curated list of dependencies].
+We partially rely on Dependabot for https://github.com/quarkusio/quarkus/blob/main/.github/dependabot.yml[a curated list of dependencies].
 
 Some dependencies are critical for Quarkus and quite complex.
 Good examples would be Vert.x or Hibernate ORM.
 
 It is good practice to update these core dependencies at the beginning of a given
-release cycle to let them time to bake in the master branch before being released.
+release cycle to let them time to bake in the main branch before being released.
 
 == Backward Compatibility
 
@@ -182,9 +179,6 @@ some of the "excluding" labels.
 
 Thus:
 
-* When you merge a pull request, please affect it with the current milestone marked with "master".
-* If the pull request has issues associated (i.e. if the pull request fixes some issues),
-  you should also affect the milestone assigned to the issues.
 * If you close a pull request because the committers have decided to not merge it,
   please add the appropriate `triage/` label: `triage/invalid`, `triage/out-of-date`,
   `triage/wontfix` are usually in order.
@@ -204,7 +198,7 @@ release a couple of weeks after.
 Every time we do a major release (e.g. `1.7.0.Final`), we create a release branch (e.g. `1.7`) to host
 the commits for these bugfix releases.
 
-All the pull requests are merged in the `master` branch so they are applied to the new feature 
+All the pull requests are merged in the `main` branch so they are applied to the new feature 
 release of Quarkus.
 They won't be integrated in the previous version branch.
 

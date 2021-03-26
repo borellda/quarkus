@@ -1,5 +1,6 @@
 package io.quarkus.it.kubernetes.client;
 
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 
@@ -18,7 +19,7 @@ import io.restassured.RestAssured;
  * KubernetesClientTest.TestResource contains the entire process of setting up the Mock Kubernetes API Server
  * It has to live there otherwise the Kubernetes client in native mode won't be able to locate the mock API Server
  */
-@QuarkusTestResource(CustomKubernetesMockServerTestResource.class)
+@QuarkusTestResource(value = CustomKubernetesMockServerTestResource.class, restrictToAnnotatedClass = true)
 @QuarkusTest
 public class KubernetesClientTest {
 
@@ -70,6 +71,11 @@ public class KubernetesClientTest {
 
         mockServer.expect().delete().withPath("/api/v1/namespaces/test/pods/pod1")
                 .andReturn(200, "{}")
+                .once();
+
+        // PUT on /pod/test will createOrReplace, which attempts a POST first, then a PUT if receiving a 409
+        mockServer.expect().post().withPath("/api/v1/namespaces/test/pods")
+                .andReturn(HTTP_CONFLICT, "{}")
                 .once();
 
         // it doesn't really matter what we return here, we just need to return a Pod to make sure

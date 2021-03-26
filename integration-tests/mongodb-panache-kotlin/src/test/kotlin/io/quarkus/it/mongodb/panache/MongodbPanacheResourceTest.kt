@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import io.quarkus.it.mongodb.panache.book.BookDetail
 import io.quarkus.it.mongodb.panache.person.Person
+import io.quarkus.it.mongodb.panache.person.PersonEntity
 import io.quarkus.test.common.QuarkusTestResource
 import io.quarkus.test.junit.QuarkusTest
 import io.restassured.RestAssured

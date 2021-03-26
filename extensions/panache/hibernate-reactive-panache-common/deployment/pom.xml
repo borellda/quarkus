@@ -6,21 +6,12 @@
         <artifactId>quarkus-hibernate-reactive-panache-common-parent</artifactId>
         <groupId>io.quarkus</groupId>
         <version>999-SNAPSHOT</version>
-        <relativePath>../</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
-    <properties>
-        <maven.compiler.parameters>true</maven.compiler.parameters>
-    </properties>
 
     <artifactId>quarkus-hibernate-reactive-panache-common-deployment</artifactId>
     <name>Quarkus - Hibernate Reactive with Panache - Common - Deployment</name>
     <dependencies>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-core-deployment</artifactId>
-        </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-hibernate-reactive-deployment</artifactId>

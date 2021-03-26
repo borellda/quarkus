@@ -1,7 +1,7 @@
 ////
 This guide is maintained in the main Quarkus repository
 and pull requests should be submitted there:
-https://github.com/quarkusio/quarkus/tree/master/docs/src/main/asciidoc
+https://github.com/quarkusio/quarkus/tree/main/docs/src/main/asciidoc
 ////
 = Quarkus - Using Hibernate ORM and JPA
 
@@ -169,12 +169,11 @@ Make up your mind on which approach you want to use.
 ====
 Want to start a PostgreSQL server on the side with Docker?
 
-[source,shell]
+[source,bash]
 ----
-docker run --ulimit memlock=-1:-1 -it --rm=true --memory-swappiness=0 \
-           --name postgres-quarkus-hibernate -e POSTGRES_USER=hibernate \
+docker run --rm=true --name postgres-quarkus-hibernate -e POSTGRES_USER=hibernate \
            -e POSTGRES_PASSWORD=hibernate -e POSTGRES_DB=hibernate_db \
-           -p 5432:5432 postgres:10.5
+           -p 5432:5432 postgres:13.1
 ----
 
 This will start a non-durable empty database: ideal for a quick experiment!
@@ -185,15 +184,7 @@ This will start a non-durable empty database: ideal for a quick experiment!
 
 ==== Setting up multiple persistence units
 
-[WARNING]
-====
-This feature is still experimental.
-It is considered stable and usable in production but the configuration properties and CDI integration might evolve depending on your feedback.
-
-If you are using this feature, any feedback (even just to say it fulfills your requirements) is very welcome on our link:{quarkus-mailing-list-index}[quarkus-dev mailing list].
-====
-
-Starting with Quarkus 1.8, you can define multiple persistence units using the Quarkus configuration properties approach.
+It is possible to define multiple persistence units using the Quarkus configuration properties.
 
 The properties at the root of the `quarkus.hibernate-orm.` namespace define the default persistence unit.
 For instance, the following snippet defines a default datasource and a default persistence unit:
@@ -247,6 +238,7 @@ You can point your persistence unit to the default datasource by setting it to `
 It is perfectly valid to have several persistence units pointing to the same datasource.
 ====
 
+[[multiple-persistence-units-attaching-model-classes]]
 ==== Attaching model classes to persistence units
 
 There are two ways to attach model classes to persistence units, and they should not be mixed:
@@ -351,7 +343,7 @@ You can inject the `EntityManagerFactory` of a named persistence unit using the 
 [source,java]
 ----
 @Inject
-@PersistenceUnit("users") <1>
+@PersistenceUnit("users")
 EntityManagerFactory entityManagerFactory;
 ----
 
@@ -422,6 +414,7 @@ or jars, you can make sure that your jar is treated like a Quarkus application l
 
 This will allow Quarkus to index and enhance your entities as if they were inside the current project.
 
+[[dev-mode]]]
 == Hibernate ORM in development mode
 
 Quarkus development mode is really useful for applications that mix front end or services and database access.
@@ -452,7 +445,7 @@ But for development, these limitations are acceptable.
 
 The third approach is to use `quarkus.hibernate-orm.database.generation=none`.
 This approach is best when you are working on a copy of the production data but want to fully control the schema evolution.
-Or if you use a database schema migration tool like https://quarkus.io/guides/flyway[Flyway].
+Or if you use a database schema migration tool like link:flyway[Flyway].
 
 With this approach when making changes to an entity, make sure to adapt the database schema accordingly;
 you could also use `validate` to have Hibernate verify the schema matches its expectations.
@@ -461,11 +454,11 @@ WARNING: Do not use `quarkus.hibernate-orm.database.generation` `drop-and-create
 
 
 These approaches become really powerful when combined with Quarkus configuration profiles.
-You can define different https://quarkus.io/guides/config#configuration-profiles[configuration profiles]
+You can define different link:config#configuration-profiles[configuration profiles]
 to select different behaviors depending on your environment.
 This is great because you can define different combinations of Hibernate ORM properties matching the development style you currently need.
 
-[source]
+[source,properties]
 .application.properties
 ----
 %dev.quarkus.hibernate-orm.database.generation = drop-and-create
@@ -500,7 +493,7 @@ but we wanted you to avoid overriding your database by accident in prod :)
 Speaking of, make sure to not drop your database schema in production!
 Add the following in your properties file.
 
-[source]
+[source,properties]
 .application.properties
 ----
 %prod.quarkus.hibernate-orm.database.generation = none
@@ -658,9 +651,10 @@ For more information about Hibernate Envers, see link:https://hibernate.org/orm/
 
 [[metrics]]
 == Metrics
-The SmallRye Metrics extension is capable of exposing metrics that Hibernate ORM collects at runtime. To enable exposure of Hibernate metrics
-on the `/metrics` endpoint, make sure your project depends on the `quarkus-smallrye-metrics` artifact and set the configuration property `quarkus.hibernate-orm.metrics.enabled` to `true`.
-Metrics will then be available under the `vendor` scope.
+Either link:micrometer[Micrometer] or link:microprofile-metrics[SmallRye Metrics] are
+capable of exposing metrics that Hibernate ORM collects at runtime. To enable exposure of Hibernate metrics
+on the `/q/metrics` endpoint, make sure your project depends on a metrics extension and set the configuration property `quarkus.hibernate-orm.metrics.enabled` to `true`.
+When using link:microprofile-metrics[SmallRye Metrics], metrics will be available under the `vendor` scope.
 
 == Limitations and other things you should know
 
@@ -730,10 +724,6 @@ JPA Callbacks::
 Annotations allowing for application callbacks on entity lifecycle events defined by JPA such as `@javax.persistence.PostUpdate`, `@javax.persistence.PostLoad`, `@javax.persistence.PostPersist`, etc... are currently not processed.
 This limitation could be resolved in a future version, depending on user demand.
 
-Single instance::
-It is currently not possible to configure more than one instance of Hibernate ORM.
-This is a temporary limitation, the team is working on it - please be patient!
-
 === Other notable differences
 
 Format of `import.sql`::
@@ -768,14 +758,10 @@ Let's start by implementing the `/{tenant}` endpoint. As you can see from the so
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
-import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
 
 @ApplicationScoped
-@Produces("application/json")
-@Consumes("application/json")
 @Path("/{tenant}")
 public class FruitResource {
 
@@ -882,7 +868,7 @@ public class CustomTenantResolver implements TenantResolver {
 
 In general it is not possible to use the Hibernate ORM database generation feature in conjunction with a multitenancy setup.
 Therefore you have to disable it and you need to make sure that the tables are created per schema. 
-The following setup will use the link:https://quarkus.io/guides/flyway[Flyway] extension to achieve this goal.
+The following setup will use the link:flyway[Flyway] extension to achieve this goal.
 
 ==== SCHEMA approach
 

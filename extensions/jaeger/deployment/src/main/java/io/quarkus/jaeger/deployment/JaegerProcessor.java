@@ -2,8 +2,6 @@ package io.quarkus.jaeger.deployment;
 
 import java.util.Optional;
 
-import javax.inject.Inject;
-
 import io.jaegertracing.internal.JaegerTracer;
 import io.quarkus.deployment.Capability;
 import io.quarkus.deployment.Feature;
@@ -16,7 +14,7 @@ import io.quarkus.deployment.builditem.ExtensionSslNativeSupportBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.metrics.MetricsCapabilityBuildItem;
-import io.quarkus.deployment.pkg.steps.NativeBuild;
+import io.quarkus.deployment.pkg.steps.NativeOrNativeSourcesBuild;
 import io.quarkus.jaeger.runtime.JaegerBuildTimeConfig;
 import io.quarkus.jaeger.runtime.JaegerConfig;
 import io.quarkus.jaeger.runtime.JaegerDeploymentRecorder;
@@ -25,10 +23,7 @@ import io.quarkus.runtime.metrics.MetricsFactory;
 
 public class JaegerProcessor {
 
-    @Inject
-    BuildProducer<ExtensionSslNativeSupportBuildItem> extensionSslNativeSupport;
-
-    @BuildStep(onlyIf = NativeBuild.class)
+    @BuildStep(onlyIf = NativeOrNativeSourcesBuild.class)
     @Record(ExecutionTime.STATIC_INIT)
     void setVersion(JaegerDeploymentRecorder jdr) {
         jdr.setJaegerVersion(JaegerTracer.getVersionFromProperties());
@@ -36,11 +31,9 @@ public class JaegerProcessor {
 
     @BuildStep
     @Record(ExecutionTime.RUNTIME_INIT)
-    void setupTracer(JaegerDeploymentRecorder jdr, JaegerBuildTimeConfig buildTimeConfig, JaegerConfig jaeger,
+    ExtensionSslNativeSupportBuildItem setupTracer(JaegerDeploymentRecorder jdr, JaegerBuildTimeConfig buildTimeConfig,
+            JaegerConfig jaeger,
             ApplicationConfig appConfig, Optional<MetricsCapabilityBuildItem> metricsCapability) {
-
-        // Indicates that this extension would like the SSL support to be enabled
-        extensionSslNativeSupport.produce(new ExtensionSslNativeSupportBuildItem(Feature.JAEGER.getName()));
 
         if (buildTimeConfig.enabled) {
             if (buildTimeConfig.metricsEnabled && metricsCapability.isPresent()) {
@@ -53,11 +46,14 @@ public class JaegerProcessor {
                 jdr.registerTracerWithoutMetrics(jaeger, appConfig);
             }
         }
+
+        // Indicates that this extension would like the SSL support to be enabled
+        return new ExtensionSslNativeSupportBuildItem(Feature.JAEGER.getName());
     }
 
     @BuildStep
-    public void build(BuildProducer<FeatureBuildItem> feature) {
-        feature.produce(new FeatureBuildItem(Feature.JAEGER));
+    public FeatureBuildItem build() {
+        return new FeatureBuildItem(Feature.JAEGER);
     }
 
     @BuildStep
@@ -69,11 +65,11 @@ public class JaegerProcessor {
     }
 
     @BuildStep
-    public void reflectiveClasses(BuildProducer<ReflectiveClassBuildItem> reflectiveClasses) {
-        reflectiveClasses.produce(ReflectiveClassBuildItem
+    public ReflectiveClassBuildItem reflectiveClasses() {
+        return ReflectiveClassBuildItem
                 .builder("io.jaegertracing.internal.samplers.http.SamplingStrategyResponse",
                         "io.jaegertracing.internal.samplers.http.ProbabilisticSamplingStrategy")
                 .finalFieldsWritable(true)
-                .build());
+                .build();
     }
 }
