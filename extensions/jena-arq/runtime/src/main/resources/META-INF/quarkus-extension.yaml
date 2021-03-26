@@ -1,7 +1,7 @@
 name: "Apache Jena ARQ"
 metadata:
   keywords:
-    - "jena"
+    - "query"
     - "rdf"
     - "data"
   guide: "https://quarkus.io/guides/jena"
